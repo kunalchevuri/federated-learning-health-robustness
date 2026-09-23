@@ -121,9 +121,9 @@ CONCLUSION = [
 ]
 
 CODE_AND_DATA = [
-    "Code, data and the full experimental harness are open, with a script "
-    "that re-checks every number on this poster.",
-    "osf.io/d5u2q",
+    "Code, merged results and the full experimental harness are open, with a "
+    "script that re-checks every number on this poster.",
+    "github.com/kunalchevuri/federated-learning-health-robustness",
 ]
 
 REFERENCES = [
@@ -279,6 +279,8 @@ panel.left, panel.top = Inches(0.5), Inches(31.3)
 panel.width, panel.height = Inches(4.6), Inches(2.6)
 set_para_text(panel.text_frame.paragraphs[0], "CODE & DATA")
 fill(panel, CODE_AND_DATA)
+for r in list(panel.text_frame.paragraphs)[-1].runs:
+    r.font.size = Pt(20)
 print("  added CODE & DATA panel")
 
 # ---- swap the placeholder chart art for the real figures ----------------
