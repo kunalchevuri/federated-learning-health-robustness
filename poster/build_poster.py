@@ -1,128 +1,175 @@
 r"""
-build_poster.py — fill the UNT COI 2x3 template with the FL-BRFSS content.
+build_poster.py — UNT Research Day poster, built on the COI 2x3 template.
 
-Edits the real template so UNT branding, the logo, the green bars and the
-24x36 in canvas are preserved exactly. Body paragraphs are rewritten in place
-(run 0's text is replaced, its siblings dropped) so each paragraph keeps the
-template's own character formatting rather than collapsing to an unstyled run.
+Structure follows the example posters Dr. Aledhari supplied: a filled header
+bar on every section, sub-headers written as complete thoughts rather than
+labels, each figure sitting inside the section it belongs to, and body text as
+one-sentence bullets.
 
-A body line given as a ("Bold lead.", " rest of sentence") tuple is split into
-two runs so each block opens with a scannable bold phrase. Poster readers skim
-first and commit second; the bold lead is what they skim.
+The visual identity is UNT's only. Every colour below is read out of the COI
+template itself -- UNT_GREEN is the template's own heading colour and the pale
+background is the template slide's. Nothing is taken from the example posters.
 
-PowerPoint does not reflow one text box around another, so section lengths and
-the y positions below are matched by hand: roughly 0.40 in per wrapped line at
-the template's 24 pt, 45 characters to a line in a 6.6 in column, plus BODY_GAP
-between paragraphs and about 0.55 in for the heading.
+Kept from the template: the 24x36 canvas, the green header bar, the UNT logo
+and Calibri. The template's seven body text boxes are removed, because the new
+section list does not map onto them.
+
+Section heights are estimated (see `body`) rather than measured, since
+PowerPoint resolves autofit at render time; the script prints where each
+column ends so the layout can be balanced against BOTTOM.
 
     python poster/build_poster.py
 """
-import copy
 import os
 from pptx import Presentation
+from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.ns import qn
-from pptx.text.text import _Run
 from pptx.util import Inches, Pt
 
 TEMPLATE = os.path.expanduser(r"~/Downloads/COI Research Poster Template 2x3.pptx")
 OUT = "poster/FL_Poster_Chevuri_Aledhari.pptx"
 FIGDIR = "poster/figures"
 
-BODY_GAP = Pt(14)   # the template's own paragraph gap is ~0.6 in, far too airy
+# ── UNT palette, read out of the template ────────────────────────────────
+UNT_GREEN = RGBColor(0x00, 0x74, 0x39)   # the template's own heading colour
+UNT_SUB = RGBColor(0x3F, 0x8C, 0x5C)     # lighter tint of the same hue
+WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+INK = RGBColor(0x1A, 0x1A, 0x1A)
+FONT = "Calibri"                          # the template's minor font
+
+# ── layout grid ──────────────────────────────────────────────────────────
+COL_W = 7.26
+COL_X = [0.60, 8.36, 16.12]
+TOP = 3.62                                # header bar ends at 3.27
+BOTTOM = 35.3
+
+BAR_H, BAR_PT = 0.78, 25
+SUB_H, SUB_PT = 0.62, 19
+BODY_PT = 19
+REF_PT = 16
+LINE21 = 0.355                            # height of one 21 pt line, in inches
+GAP = 0.20
 
 TITLE = "Robustness or Weighting? Re-Evaluating Federated Aggregation on Heterogeneous Health Data"
 AUTHORS = "Kunal Chevuri and Dr. Mohammed Aledhari"
 AFFIL = "University of North Texas"
 
-# One line, directly under the header, for someone deciding whether to stop.
-# The title is the paper's and carries three hard words; this is the plain
-# version of the same sentence.
-HOOK = ("Hospitals cannot share patient data. Federated learning gets around "
-        "that. We found the field is crediting the wrong thing.")
-
-INTRODUCTION = [
-    "Hospitals, clinics and health agencies each hold records that could "
-    "sharpen how we predict disease. Privacy law keeps them from pooling "
-    "those records in one place.",
-    "Federated learning is the workaround, sketched below. The merge step is "
-    "the real design decision, because real sites are lopsided and "
-    "self-reported health data arrives with errors.",
+# ═════════════════════════════════════════════════════════════════════════
+# Content. Every bullet is one sentence, as in the example posters.
+# ═════════════════════════════════════════════════════════════════════════
+MOTIVATION = [
+    "Hospitals and health agencies hold records that could sharpen how we "
+    "predict disease, but privacy law stops them pooling the data.",
+    "Federated learning trains one shared model without moving any patient "
+    "record out of the institution holding it.",
+    "The rule that merges each site's work is normally chosen for its "
+    "robustness to noisy or unusual sites.",
+    "Robust rules are always scored against FedAvg, which weights each site "
+    "by how much data it holds, so the biggest site gets the loudest vote.",
+    "Robust rules discard that weighting entirely, so two things change at "
+    "once and nobody had separated them.",
+    "We ask: when a robust rule wins, is it the robust statistic winning, or "
+    "just the end of the loudest vote?",
 ]
 
-PURPOSE = [
-    "Robust merge rules are always scored against FedAvg, which weights each "
-    "site by how many records it holds. In effect the biggest site gets the "
-    "loudest vote. Robust rules drop that weighting entirely, so two things "
-    "change at once.",
-    ("The question.", "  When a robust rule wins, is it the robust statistic "
-     "winning, or just the end of the loudest vote?"),
+BACKGROUND = [
+    "Each site trains on its own data and sends only the model update, which "
+    "the server merges into one shared model.",
+]
+
+DATASET = [
+    "CDC BRFSS 2023: 382,709 U.S. adults, predicting self-reported "
+    "depression, which 20.7% of respondents report.",
+    "UCI Breast Cancer Wisconsin runs alongside as a clean clinical benchmark.",
+    "Each dataset is dealt to 20 simulated sites by Dirichlet partitioning, "
+    "whose dial alpha sets how lopsided the split is.",
+]
+DATASET_AFTER = [
+    "At alpha = 0.1 one site holds 106,481 training rows, 34.8% of the total, "
+    "while two sites receive nothing at all.",
 ]
 
 METHODS = [
-    ("Seven merge rules, head to head.", "  FedAvg, FedProx, CS-Agg, Krum, "
-     "trimmed mean, coordinate-wise median, and an unweighted mean we added "
-     "ourselves as a control."),
-    ("The control is the experiment.", "  It uses no robust statistic at all, "
-     "and differs from FedAvg in one respect: it ignores how much data each "
-     "site holds. Anything it gains is weighting."),
-    ("The data.", "  CDC's 2023 BRFSS survey, 382,709 U.S. adults, predicting "
-     "self-reported depression, with Breast Cancer Wisconsin alongside as a "
-     "clean clinical benchmark. The shared model is a small neural network."),
-    ("Splitting it up.", "  Each dataset is dealt out to 20 simulated sites, "
-     "deliberately unevenly. The dial, alpha, sets how lopsided: at alpha = 0.1 "
-     "one site holds over a third of the data and others hold none."),
-    ("Breaking the labels.", "  We flip labels at 20 percent of sites, across "
-     "0 to 30 percent of their records, only the way real people get it wrong: "
-     "reporting no depression when they have it."),
-    ("The scale of it.", "  624 conditions covering every rule, dataset, "
-     "split, noise level and seed. 50 rounds each, scored on a clean held-out "
-     "test set. Holm-corrected Wilcoxon tests throughout."),
+    "Seven merge rules run head to head: FedAvg, FedProx, CS-Agg, Krum, "
+    "trimmed mean, coordinate-wise median, and an unweighted mean.",
+    "The unweighted mean is our control: it uses no robust statistic and "
+    "differs from FedAvg only in ignoring how much data each site holds.",
+    "Anything the control gains over FedAvg is therefore weighting alone, "
+    "which is what isolates the effect.",
+    "Labels are flipped at 20% of sites, across 0 to 30% of their records.",
+    "On BRFSS we flip them only the way real people err, reporting no "
+    "depression when they have it.",
+    "624 conditions cover every combination of rule, dataset, split, noise "
+    "level and random seed.",
+    "Each runs 50 rounds, scored by AUC-ROC on a clean held-out test set the "
+    "sites never see.",
+    "Differences are tested with Wilcoxon signed-rank, Holm-corrected within "
+    "each of three comparison families.",
 ]
 
-RESULTS = [
-    "Every rule below is scored against the unweighted-mean control, not "
-    "against FedAvg alone. Figures show BRFSS at the harshest split "
-    "(alpha = 0.1) unless the panel says otherwise.",
-    ("Reading the charts.", "  AUC-ROC measures how well the model tells "
-     "apart people who have depression from people who do not. 0.5 is a coin "
-     "flip, 1.0 is perfect."),
+RES_A_SUB = "Most of the gain over FedAvg is weighting, not robustness"
+RES_A = [
+    "The control alone recovers 79 to 98% of what the three strongest robust "
+    "rules gain over FedAvg.",
+    "Only coordinate-wise median clearly clears it, at +0.0163 AUC "
+    "(Holm p < 0.0001).",
+    "Trimmed mean's +0.0026 is significant but negligible, and CS-Agg cannot "
+    "be told apart from the control (p = 0.22).",
 ]
 
-KEY_FINDINGS = [
-    ("1.  Most of the benefit is bookkeeping, not robustness.",
-     "  Simply declining to over-weight the biggest site recovers 79 to 98 "
-     "percent of everything the three strongest robust rules gain over FedAvg."),
-    ("2.  Only one rule earns its keep.",
-     "  Coordinate-wise median clears the control by +0.0163 AUC "
-     "(p < 0.0001). Trimmed mean's +0.0026 is real but too small to matter, "
-     "and CS-Agg cannot be told apart from the control at all (p = 0.22)."),
-    ("3.  A popular rule does worse than doing nothing.",
-     "  Krum lands below the control, and on one run collapses to 0.328 AUC, "
-     "worse than a coin flip, from a rule chosen for its robustness."),
-    ("4.  Lopsided data hurts far more than broken labels.",
-     "  About a hundred times more. That gap narrows when each site tracks "
-     "more health variables, but it never closes."),
-    ("5.  A clean benchmark would have hidden all of this.",
-     "  On Breast Cancer every rule but Krum reaches 0.997 AUC or better, "
-     "where no difference is visible. Messy self-reported population health "
-     "data is where these rules actually separate."),
+RES_C_SUB = "Krum is unreliable, not merely weaker"
+RES_C = [
+    "Krum lands below the control and collapses to 0.328 AUC on one run, "
+    "worse than a coin flip.",
 ]
 
-CONCLUSION = [
-    "Across the datasets and partitioning studied here, most of the advantage "
-    "robust aggregators hold over FedAvg comes from how they weight sites, "
-    "not from the robust statistic they are named for.",
-    ("What to do about it.", "  Any robustness evaluation run on size-skewed "
-     "data should include an unweighted-mean control. It is one line of code, "
-     "and without it a reported gain cannot be credited to robustness."),
-    ("Why it matters in the field.", "  A rule's reputation is not evidence. "
-     "Krum is widely cited and failed badly here. Coordinate-wise median is "
-     "about as simple as merge rules get, and it held."),
+RES_G_SUB = "Lopsided data hurts far more than broken labels"
+RES_G = [
+    "Moving from alpha = 1.0 to 0.1 costs FedAvg 0.2348 AUC, while 0% to 30% "
+    "label noise costs it 0.0016.",
+    "That 149x gap narrows to about 14x when sites track twelve health "
+    "variables instead of four, but it never closes.",
 ]
 
-CODE_AND_DATA = [
-    "Code, merged results and the full experimental harness are open, with a "
-    "script that re-checks every number on this poster.",
+RES_B_SUB = "A clean benchmark would have hidden all of this"
+RES_B = [
+    "On Breast Cancer every rule but Krum reaches 0.997 AUC or better, where "
+    "no difference between them is visible.",
+    "Messy, self-reported population health data is where these rules "
+    "actually separate.",
+]
+
+FUTURE = [
+    "Test adaptive Byzantine attackers, not only the label noise studied here.",
+    "Replace the simulated Dirichlet split with data partitioned across real "
+    "institutions.",
+    "Check whether the weighting effect persists for deeper models and larger "
+    "numbers of sites.",
+]
+
+CONCLUSIONS = [
+    "Most of the advantage robust aggregators hold over FedAvg comes from how "
+    "they weight sites, not from the robust statistic they are named for.",
+    "Any robustness evaluation run on size-skewed data should include an "
+    "unweighted-mean control.",
+    "The control costs one line of code, and without it a reported gain "
+    "cannot be credited to robustness.",
+    "A rule's reputation is not evidence: Krum is widely cited and failed "
+    "here, while coordinate-wise median is simple and held.",
+]
+
+ACK = [
+    "Survey data collected and published by the Centers for Disease Control "
+    "and Prevention (BRFSS 2023).",
+    "Carried out in the Computational Healthcare and Biotechnology Lab, "
+    "University of North Texas.",
+]
+
+CODE = [
+    "All code, the merged results and a script that re-checks every number on "
+    "this poster are openly available.",
     "github.com/kunalchevuri/federated-learning-health-robustness",
 ]
 
@@ -137,162 +184,144 @@ REFERENCES = [
     "datasets via bucketing. ICLR, 2022.",
     "[5]  Hsu et al. Measuring the effects of non-identical data distribution "
     "for federated visual classification. arXiv:1909.06335, 2019.",
-    "[6]  Centers for Disease Control and Prevention. BRFSS 2023 survey data "
-    "and documentation.",
+    "[6]  CDC. BRFSS 2023 survey data and documentation.",
 ]
 
-SECTIONS = {
-    "TextBox 10": INTRODUCTION,
-    "TextBox 12": PURPOSE,
-    "TextBox 14": METHODS,
-    "TextBox 7":  RESULTS,
-    "TextBox 17": KEY_FINDINGS,
-    "TextBox 21": CONCLUSION,
-    "TextBox 23": REFERENCES,
-}
-
-# section -> top edge, in inches. The columns now start below the hook line.
-TOPS = {
-    "TextBox 10":  5.0,   # INTRODUCTION
-    "TextBox 12": 12.8,   # PURPOSE  (below the schematic)
-    "TextBox 14": 17.7,   # METHODS
-    "TextBox 7":   5.0,   # RESULTS
-    "TextBox 17":  5.0,   # KEY FINDINGS
-    "TextBox 21": 17.0,   # CONCLUSION
-    "TextBox 23": 24.8,   # REFERENCES
-}
-
-# figure, left, top, width, height (inches) — middle column is x=8.3, 7.4 wide
-FIGURES = [
-    ("posterD_federated.png",     0.5,  9.4, 6.6, 2.9),
-    ("posterA_decomposition.png", 8.3,  9.3, 7.4, 8.4),
-    ("posterB_both_datasets.png", 8.3, 18.1, 7.4, 8.2),
-    ("posterC_runlevel.png",      8.3, 26.7, 7.4, 7.1),
-    ("posterE_qr.png",            5.35, 31.8, 1.7, 1.7),
-]
-
-
-def _preserve_space(run):
-    """Keep leading/trailing spaces in a run that abuts another run."""
-    t = run._r.find(qn("a:t"))
-    if t is not None:
-        t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-
-
-def set_para_text(para, text):
-    """Replace a paragraph's text, keeping run 0's character formatting.
-
-    `text` is either a string or a (bold lead, remainder) tuple, which is laid
-    down as two runs cloned from run 0 so the lead inherits the template's font.
-    """
-    runs = para.runs
-    r0 = runs[0]
-    for r in runs[1:]:
-        r._r.getparent().remove(r._r)
-
-    if isinstance(text, tuple):
-        lead, rest = text
-        r0.text = lead
-        r0.font.bold = True
-        _preserve_space(r0)
-        tail_el = copy.deepcopy(r0._r)
-        r0._r.addnext(tail_el)
-        tail = _Run(tail_el, para)
-        tail.text = rest
-        tail.font.bold = False
-        _preserve_space(tail)
-    else:
-        r0.text = text
-
-
-def fill(shape, body_lines):
-    """Keep paragraph 0 (the section heading); rewrite the body beneath it."""
-    tf = shape.text_frame
-    paras = list(tf.paragraphs)
-    body = [p for p in paras[1:] if p.runs]
-    if not body:
-        raise RuntimeError(f"{shape.name}: no styled body paragraph to clone")
-    template_p = body[0]._p
-
-    # drop every existing body paragraph
-    for p in paras[1:]:
-        p._p.getparent().remove(p._p)
-
-    parent = tf._txBody
-    for line in body_lines:
-        new_p = copy.deepcopy(template_p)
-        parent.append(new_p)
-    # re-read and populate
-    for para, line in zip(list(tf.paragraphs)[1:], body_lines):
-        set_para_text(para, line)
-        para.space_before = Pt(0)
-        para.space_after = BODY_GAP
-
-
-def clone(slide, src):
-    """Append a copy of an existing shape and return the new shape object."""
-    src._element.getparent().append(copy.deepcopy(src._element))
-    return list(slide.shapes)[-1]
-
-
+# ═════════════════════════════════════════════════════════════════════════
 prs = Presentation(TEMPLATE)
 slide = prs.slides[0]
 shapes = {sh.name: sh for sh in slide.shapes}
 
-# ---- header -------------------------------------------------------------
-# At the template's 60 pt the title runs to three lines and pushes the white
-# author text off the green bar onto the pale background. 44 pt keeps the
-# whole block inside the 3.3 in bar.
+
+def drop(name):
+    sh = shapes.get(name)
+    if sh is not None:
+        sh._element.getparent().remove(sh._element)
+
+
+def bar(col, y, text, height=BAR_H, size=BAR_PT, fill=UNT_GREEN):
+    """A filled UNT-green section header with white text."""
+    sh = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(COL_X[col]),
+                                Inches(y), Inches(COL_W), Inches(height))
+    sh.fill.solid()
+    sh.fill.fore_color.rgb = fill
+    sh.line.fill.background()
+    sh.shadow.inherit = False
+    tf = sh.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.margin_left = tf.margin_right = Inches(0.16)
+    tf.margin_top = tf.margin_bottom = 0
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    r = p.add_run()
+    r.text = text
+    r.font.name, r.font.size, r.font.bold = FONT, Pt(size), True
+    r.font.color.rgb = WHITE
+    return y + height + 0.12
+
+
+def body(col, y, items, size=BODY_PT, bullet=True, width=None):
+    """Bulleted body text; returns the estimated y just below it."""
+    w = width if width else COL_W
+    # 21 pt wraps at ~52 chars in a 7.26 in column; scale with size and width.
+    per_line = int(52 * (21.0 / size) * (w / COL_W))
+    lines = sum(max(1, -(-len(t) // per_line)) for t in items)
+    h = lines * (LINE21 * size / 21.0) + 0.135 * len(items) + 0.10
+
+    tb = slide.shapes.add_textbox(Inches(COL_X[col]), Inches(y),
+                                  Inches(w), Inches(h))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.margin_left = Inches(0.06)
+    tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+    for i, t in enumerate(items):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.space_before, p.space_after = Pt(0), Pt(8)
+        if bullet:
+            pPr = p._p.get_or_add_pPr()
+            pPr.set("indent", "-215900")
+            pPr.set("marL", "215900")
+            pPr.append(pPr.makeelement(qn("a:buFont"), {"typeface": "Arial"}))
+            pPr.append(pPr.makeelement(qn("a:buChar"), {"char": "•"}))
+        r = p.add_run()
+        r.text = t
+        r.font.name, r.font.size = FONT, Pt(size)
+        r.font.color.rgb = INK
+    return y + h + GAP
+
+
+def figure(col, y, fn, height, width=None, left=None):
+    w = width if width else COL_W
+    x = left if left is not None else COL_X[col]
+    slide.shapes.add_picture(os.path.join(FIGDIR, fn), Inches(x), Inches(y),
+                             Inches(w), Inches(height))
+    return y + height + GAP
+
+
+# ── header ───────────────────────────────────────────────────────────────
 hdr = shapes["TextBox 4"]
 hdr.width = Inches(18.4)
-title_tf = hdr.text_frame
-for para, txt, size in zip(title_tf.paragraphs, [TITLE, AUTHORS, AFFIL], [44, 30, 30]):
-    set_para_text(para, txt)
-    para.runs[0].font.size = Pt(size)
+for para, txt, size in zip(hdr.text_frame.paragraphs, [TITLE, AUTHORS, AFFIL], [44, 30, 30]):
+    runs = para.runs
+    runs[0].text = txt
+    runs[0].font.size = Pt(size)
+    for r in runs[1:]:
+        r._r.getparent().remove(r._r)
 
-# ---- geometry -----------------------------------------------------------
-for name, top in TOPS.items():
-    shapes[name].top = Inches(top)
-shapes["TextBox 10"].height = Inches(4.2)   # INTRODUCTION, now two paragraphs
-shapes["TextBox 7"].width = Inches(7.4)     # RESULTS, to match the figures below
+for n in ("TextBox 7", "TextBox 10", "TextBox 12", "TextBox 14",
+          "TextBox 17", "TextBox 21", "TextBox 23", "Picture 5"):
+    drop(n)
 
-# ---- body sections ------------------------------------------------------
-for name, lines in SECTIONS.items():
-    fill(shapes[name], lines)
-    print(f"  filled {name:<12} ({len(lines)} paragraphs)")
+# ── column 1: the setup ──────────────────────────────────────────────────
+y = TOP
+y = bar(0, y, "Motivation & Questions")
+y = body(0, y, MOTIVATION)
+y = bar(0, y, "Background: how federated learning works")
+y = body(0, y, BACKGROUND)
+y = figure(0, y, "posterD_federated.png", 2.85)
+y = bar(0, y, "Dataset")
+y = body(0, y, DATASET)
+y = figure(0, y, "posterF_partition.png", 4.35)
+y = body(0, y, DATASET_AFTER)
+y = bar(0, y, "Code & Data")
+qr_top = y
+y = body(0, y, CODE, bullet=False, width=COL_W - 1.80)
+figure(0, qr_top + 0.02, "posterE_qr.png", 1.55, width=1.55,
+       left=COL_X[0] + COL_W - 1.60)
+y = bar(0, max(y, qr_top + 1.75), "References")
+y = body(0, y, REFERENCES, size=REF_PT, bullet=False)
+print(f"  column 1 ends at {y - GAP:5.2f} in   (limit {BOTTOM})")
 
-# ---- the plain-language hook line, spanning all three columns -----------
-banner = clone(slide, shapes["TextBox 12"])
-btf = banner.text_frame
-for p in list(btf.paragraphs)[1:]:            # drop PURPOSE's body
-    p._p.getparent().remove(p._p)
-set_para_text(btf.paragraphs[0], HOOK)
-run = btf.paragraphs[0].runs[0]
-run.font.size, run.font.bold, run.font.italic = Pt(28), True, True
-banner.left, banner.top = Inches(0.5), Inches(3.5)
-banner.width, banner.height = Inches(23.0), Inches(1.1)
-print("  added hook line")
+# ── column 2: what we did, and the headline result ───────────────────────
+y = TOP
+y = bar(1, y, "Methods")
+y = body(1, y, METHODS)
+y = bar(1, y, "Results")
+y = bar(1, y, RES_A_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
+y = figure(1, y, "posterA_decomposition.png", 7.40)
+y = body(1, y, RES_A)
+y = bar(1, y, RES_C_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
+y = figure(1, y, "posterC_runlevel.png", 6.20)
+y = body(1, y, RES_C)
+print(f"  column 2 ends at {y - GAP:5.2f} in   (limit {BOTTOM})")
 
-# ---- CODE & DATA panel in the lower-left, beside the QR ----------------
-panel = clone(slide, shapes["TextBox 12"])    # clone PURPOSE for its styling
-panel.left, panel.top = Inches(0.5), Inches(31.3)
-panel.width, panel.height = Inches(4.6), Inches(2.6)
-set_para_text(panel.text_frame.paragraphs[0], "CODE & DATA")
-fill(panel, CODE_AND_DATA)
-for r in list(panel.text_frame.paragraphs)[-1].runs:
-    r.font.size = Pt(20)
-print("  added CODE & DATA panel")
-
-# ---- swap the placeholder chart art for the real figures ----------------
-ph = shapes.get("Picture 5")
-if ph is not None:
-    ph._element.getparent().remove(ph._element)
-    print("  removed placeholder chart art")
-
-for fn, l, t, w, h in FIGURES:
-    slide.shapes.add_picture(os.path.join(FIGDIR, fn),
-                             Inches(l), Inches(t), Inches(w), Inches(h))
-    print(f"  placed {fn} at y={t}")
+# ── column 3: the rest of the results, then what it means ────────────────
+y = TOP
+y = bar(2, y, "Results, continued")
+y = bar(2, y, RES_G_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
+y = figure(2, y, "posterG_stressors.png", 4.40)
+y = body(2, y, RES_G)
+y = bar(2, y, RES_B_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
+y = figure(2, y, "posterB_both_datasets.png", 7.20)
+y = body(2, y, RES_B)
+y = bar(2, y, "Future Directions")
+y = body(2, y, FUTURE)
+y = bar(2, y, "Conclusions")
+y = body(2, y, CONCLUSIONS)
+y = bar(2, y, "Acknowledgements")
+y = body(2, y, ACK)
+print(f"  column 3 ends at {y - GAP:5.2f} in   (limit {BOTTOM})")
 
 prs.save(OUT)
 print("\nwrote", OUT)
