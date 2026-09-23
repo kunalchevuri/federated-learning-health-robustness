@@ -1,16 +1,83 @@
 # FL-BRFSS Project — Full Handoff Document
-**Author:** Kunal Chevuri (ckchevuri@gmail.com)  
-**Date:** May 24, 2026  
-**Status:** EXPERIMENT COMPLETE (all 216 conditions, 3 seeds). Analysis done. Figures generated. Next: write paper.
+**Author:** Kunal Chevuri (ckchevuri@gmail.com)
+**Original date:** May 24, 2026 | **Last updated:** August 12, 2026
+
+> ## ⚠ READ THIS FIRST — CURRENT STATUS (Aug 12, 2026)
+>
+> **The paper is `overleaf/main.tex` + `overleaf/references.bib`. That is
+> the only manuscript source.** Lives in a self-contained `overleaf/` folder
+> -- `main.tex`, `references.bib`, a compiled `main.pdf`, and a `figures/`
+> subfolder holding all 11 PNGs (fig8-fig11 are the ones actually
+> `\includegraphics`'d; fig1-fig7 ride along unused, see below) -- so the
+> whole folder drops straight into an Overleaf project with nothing external
+> to fetch. `\graphicspath{{figures/}}` is local to the folder; there is no
+> `../` dependency on the repo's `results/figures/` anymore. It is a
+> complete IEEE conference paper (IEEEtran, two-column) that compiles
+> standalone from inside `overleaf/` -- confirmed with a real
+> `pdflatex`+`bibtex`+`pdflatex`×2 run: 9 pages excluding references, zero
+> undefined `\ref`/`\cite`, all 15 bibliography entries resolved. The old
+> `paper_edits/*.tex` fragment files (meant to be pasted
+> piecewise into an Overleaf doc this session never had access to) are
+> **deleted** -- do not recreate that workflow. `verify_paper_numbers.py`
+> (repo root) asserts 181 numbers in the paper against
+> `results/experiment_results_merged.csv`; re-run it after any edit to
+> either.
+>
+> **Target venue is IEEE TPS 2026, Round 2, deadline 22 Aug 2026.**
+> 10 pages excluding bibliography, two-column IEEE format, **anonymous
+> submission** (no names/affiliations/emails in the PDF). The paper was
+> submitted to IEEE WF-PST 2026 and **rejected**; this round responds to
+> that review.
+>
+> **What changed since the original May 24 study:**
+> - Three Byzantine-robust baselines added: Krum, trimmed mean,
+>   coordinate-wise median (`src/server_robust.py`).
+> - A **uniform (unweighted) mean control** added — isolates "dropped
+>   sample-count weighting" from "used a robust statistic". Not a proposed
+>   method; a confound check.
+> - Noisy-client-fraction sweep 0.2→0.6 at alpha=0.1.
+> - 12-feature BRFSS ablation (`preprocess_expanded`) answering the
+>   reviewer objection that 4 of ~350 features was unjustified.
+> - Runner rewritten as `src/run_experiments_v2.py` (argparse, resume-safe,
+>   shardable) + `run_shards.py`. **Everything now runs on local CPU**, not
+>   Colab. Sections 14 and 19 below are obsolete — ignore them.
+> - Analysis: `analyze_v2.py`; figures 8-11: `figures_v2.py`.
+> - Merged results: `results/experiment_results_merged.csv`.
+>
+> **Headline result changed.** Coordinate-wise median *beats* CS-Agg on
+> BRFSS (0.7828 vs 0.7746, Wilcoxon p<0.0001). The paper is now framed as a
+> comparative robustness study, not a CS-Agg advocacy paper. Do not
+> reintroduce "CS-Agg is the best method" language anywhere.
+>
+> **The 149× figure is correct, but only for one specific slice.** It is
+> 0.234808 / 0.001576 = 148.9, where the heterogeneity effect is FedAvg
+> alpha=1.0→0.1 **averaged over all four noise rates** (0.7877→0.5529) and
+> the noise effect is noise 0.0→0.3 at alpha=0.5 (0.78496→0.78338).
+> If you instead take the heterogeneity effect at **noise=0.0 only**
+> (0.7876→0.5680, effect 0.2196) the ratio is **139×**, not 149×. Quote the
+> slice with the number, every time — an early draft of
+> `paper_edits/04_results.tex` paired the noise=0.0 numbers with the 149×
+> ratio, which is internally inconsistent.
+>
+> Sections 1, 16, 17, 18c below describe the *original* WF-PST study and are
+> kept for provenance only.
 
 ---
 
-## 1. WHO YOU ARE AND WHAT YOU'RE DOING
+## 1. WHO YOU ARE AND WHAT YOU'RE DOING (ORIGINAL — SUPERSEDED)
 
 You are a researcher (undergrad/early researcher) building a paper submittable to **IEEE ICHI** or **IEEE BigData**. The research compares three federated learning methods under label noise conditions on two datasets. The goal is to show that trust-weighted aggregation (CS-Agg) meaningfully outperforms baselines (FedAvg, FedProx) when client labels are corrupted — which is realistic in health data (e.g., depression underreporting in BRFSS surveys).
 
-**Updated Research Question:**  
+**Original Research Question:**
 *How do federated learning methods (FedAvg, CS-Agg, FedProx) perform under varying levels of label noise and data heterogeneity across two healthcare classification tasks — BRFSS depression detection and UCI breast cancer diagnosis?*
+
+**Current Research Question (TPS 2026):**
+*Among seven aggregation strategies spanning sample-weighted averaging,
+trust weighting, and classical Byzantine-robust order statistics, which
+actually defends against the joint effect of extreme non-IID partitioning
+and asymmetric label noise on self-reported behavioral health data — and how
+much of any apparent advantage is attributable to robustness rather than to
+simply not weighting by client sample count?*
 
 ---
 
@@ -18,22 +85,57 @@ You are a researcher (undergrad/early researcher) building a paper submittable t
 
 ```
 fl-brfss/
-├── smoke_test.py              ← pre-run validation, run BEFORE full experiment
+├── overleaf/                  ← THE PAPER. Self-contained; drop straight into Overleaf.
+│   ├── main.tex                   single file, compiles standalone
+│   ├── references.bib             all 15 citations, each verified against a
+│   │                               publisher/indexer record (not from memory)
+│   ├── main.pdf                   last known-good compile (9 pages excl. refs)
+│   └── figures/                   all 11 PNGs; fig8-11 are \includegraphics'd,
+│                                   fig1-7 (3-method study) ride along unused
+├── verify_paper_numbers.py    ← 181 assertions: overleaf/main.tex numbers vs. the CSV
+├── smoke_test.py              ← pre-run validation
+├── validate.py, run_tests.py  ← correctness checks on the pipeline
+├── run_shards.py              ← batched shard launcher (memory-capped concurrency)
+├── analyze_v2.py              ← merge shards + produce every table in the paper
+├── figures.py                 ← figures 1-7 (original 3-method study; NOT used in main.tex)
+├── figures_v2.py              ← figures 8-11 (used in main.tex)
 ├── data/
-│   └── LLCP2023.XPT           ← BRFSS 2023 raw data (must be uploaded to Colab manually)
+│   └── LLCP2023.XPT           ← BRFSS 2023 raw data (not redistributed)
 ├── results/
-│   └── experiment_results.csv ← output file (created automatically)
+│   ├── experiment_results.csv        ← original 216-condition grid
+│   ├── v2_shards/*.csv               ← per-shard output from run_experiments_v2
+│   ├── experiment_results_merged.csv ← analyze_v2.py output; USE THIS ONE
+│   └── figures/
 └── src/
-    ├── data.py                ← data loading, preprocessing, Dirichlet partitioning
-    ├── model.py               ← BinaryMLP (shared for both datasets)
+    ├── data.py                ← preprocess() 4-feature, preprocess_expanded() 12-feature,
+    │                            Dirichlet partitioning. NOTE: BRFSS is NOT standardized.
+    ├── model.py               ← BinaryMLP; 2,466 (d=4) / 2,978 (d=12) / 4,130 (d=30) params
     ├── noise.py               ← asymmetric + symmetric label noise injection
-    ├── client.py              ← BRFSSClient + FedProxClient
+    ├── client.py              ← BRFSSClient + FedProxClient (500-sample/round train cap)
     ├── simulate.py            ← core simulation loop + fedavg_aggregate
     ├── server_fedavg.py       ← run_fedavg()
-    ├── server_csagg.py      ← run_csagg() + CS-Agg cosine similarity aggregation
+    ├── server_csagg.py        ← run_csagg() + CS-Agg cosine similarity aggregation
     ├── server_fedprox.py      ← run_fedprox()
-    └── run_experiments.py     ← main experiment loop
+    ├── server_robust.py       ← Krum, trimmed mean, coordinate median, uniform mean
+    ├── run_experiments.py     ← original main loop (kept; make_eval_fn lives here)
+    └── run_experiments_v2.py  ← CURRENT runner: argparse, resume-safe, shardable
 ```
+
+**Deleted Aug 10, 2026** (stale/superseded, do not resurrect):
+`analyze.py` (subsumed by `analyze_v2.py`), `colab_experiment.ipynb` (used the
+retired "FedNoRo" name and a Colab-only workflow), `experiment_results - Copy.csv`
+(a truncated 144-condition partial backup of the 216-condition run).
+
+**Deleted Aug 12, 2026:** `paper_edits/` (six numbered `.tex` fragments + a
+`00_README.md`, written when the plan was to copy-paste into an Overleaf
+project this session never had access to). Superseded by `overleaf/main.tex`,
+which contains the same content merged into one compiling document, with the
+"insert after X" comments and paste instructions removed since there is
+nothing left to paste into. `overleaf/` was later moved to its own folder
+(Aug 12) and made fully self-contained -- `main.tex`, `references.bib`,
+`main.pdf`, and a `figures/` subfolder with all 11 PNGs copied in and
+`\graphicspath` pointed locally -- so it can be dropped straight into an
+actual Overleaf project with no external dependency.
 
 ---
 
@@ -957,7 +1059,7 @@ print(f"CS-Agg vs FedProx: W={stat2:.1f}, p={p2:.4f}")
 
 3. **All methods saturate on Breast Cancer** — ceiling effect at ~0.997+ AUC. CS-Agg and FedProx are statistically indistinguishable (p=0.79). The dataset is too easy/small to differentiate methods under noise.
 
-4. **Noise matters less than heterogeneity on BRFSS** — at alpha=0.5 and 1.0, all methods perform similarly (0.785-0.789) regardless of noise rate. The big performance gap only shows at alpha=0.1. Heterogeneity is the harder problem. **CRITICAL RATIO (use this in the paper, NOT any other number):** Moving from alpha=1.0 to alpha=0.1 drops FedAvg mean AUC by ~0.235 (0.7882→0.5529). Increasing noise from 0% to 30% (at alpha=0.5) drops mean AUC by only ~0.0016 (0.7850→0.7834). Ratio = 0.235 / 0.0016 = **~149x** larger effect from heterogeneity than from noise. Any other ratio (e.g. 310x) in the paper draft is WRONG — correct it to ~149x.
+4. **Noise matters less than heterogeneity on BRFSS** — at alpha=0.5 and 1.0, all methods perform similarly (0.785-0.789) regardless of noise rate. The big performance gap only shows at alpha=0.1. Heterogeneity is the harder problem. **CRITICAL RATIO (use this in the paper, NOT any other number):** Moving from alpha=1.0 to alpha=0.1 drops FedAvg mean AUC by ~0.235 (0.7882→0.5529). Increasing noise from 0% to 30% (at alpha=0.5) drops mean AUC by only ~0.0016 (0.7850→0.7834). Ratio = 0.234808 / 0.001576 = **~149x** larger effect from heterogeneity than from noise. Any other ratio (e.g. 310x) in the paper draft is WRONG — correct it to ~149x. **Always state the slice alongside the ratio:** this 149x uses the heterogeneity effect *averaged over all four noise rates*. The same comparison restricted to noise=0.0 gives 0.2196/0.001576 = **139x**, and restricted to noise in {0.0, 0.2} (the slice comparable to the 12-feature ablation) gives 0.2269/0.001355 = **167x**. All three are correct for their slice; mixing the numbers from one with the ratio from another is the mistake to avoid.
 
 5. **CS-Agg is dramatically more stable** — std 0.027 vs FedAvg's 0.126 on BRFSS. This is because FedAvg collapses completely under certain Dirichlet partitions (see finding 6).
 
@@ -1027,10 +1129,55 @@ All 7 figures saved to `results/figures/`. Generated with full 3-seed data (216 
 
 Regenerate with: `python figures.py` from fl-brfss directory.
 
-## 18c. THINGS THAT HAVE NOT BEEN DONE YET (TODO)
+## 18c. OPEN ITEMS (updated Aug 12, 2026)
 
-1. **Paper writing** — next step
-2. Full alpha × noise rate table with 3-seed averages (can compute from CSV)
+Done since May: paper written and submitted to WF-PST (rejected); Krum /
+trimmed mean / coordinate median added; uniform-mean control added;
+noisy-fraction sweep; 12-feature ablation; figures 8-11; everything
+consolidated into a single compiling `main.tex` + `references.bib`
+(paper_edits/ deleted).
+
+Still open:
+
+1. **Anonymized code mirror** — Reviewer 2 explicitly asked for shared code.
+   Needs names/emails stripped from files *and* git history, then hosted
+   somewhere double-blind-safe (e.g. anonymous.4open.science). The URL fills
+   the `[ANONYMOUS-MIRROR-URL]` placeholder in `overleaf/main.tex`'s
+   Reproducibility Statement (search for that exact string). Note `.gitignore` currently
+   excludes `*.csv`, so results are untracked — the mirror should include
+   `results/experiment_results_merged.csv` so the tables can be reproduced
+   without a 4-hour rerun.
+2. **Page check** once submitting: confirmed 9 pages excluding references via
+   a real `pdflatex` compile as of Aug 12 (see status header at the top of
+   this file) — but re-check after any further edits, TPS's limit is 10.
+3. **Final anonymization sweep** of the compiled `main.pdf` before upload
+   (search for name/email/school one more time).
+4. **Decide on figures 1-7**: `figures.py` still generates the original
+   3-method figures, but `main.tex` does not reference them (superseded by
+   the 7-strategy figures 8-11 from `figures_v2.py`). They're not wired into
+   the paper, so there's nothing for them to conflict with, but if page
+   budget gets tight there's no benefit to keeping `figures.py` running as
+   part of the reproduction pipeline either.
+
+### Known methodological caveats to disclose, not hide
+
+- **BRFSS features are not standardized.** `split_data()` feeds raw values to
+  the model; only Breast Cancer gets `StandardScaler`. In the 12-feature set
+  raw ordinal codes run to 13 (`_AGEG5YR`) and 11 (`INCOME3`) alongside
+  0-1 features. This is a confound for the feature ablation.
+- **Sample-count weighting is decoupled from data actually used.** Clients
+  train on at most 500 rows/round but report `len(self.X)` as `num_examples`,
+  so at alpha=0.1 FedAvg puts ~35% of its weight on one client that trained on
+  the same 500 rows as everyone else. This is why the `uniform_mean` control
+  matters.
+- **`noisy_fraction` is a fraction of clients, not of data.** At alpha=0.1 the
+  noisy clients hold 13%-80% of training rows depending on seed, and the share
+  does not increase smoothly with the fraction. This explains the
+  non-monotonic sweep curves and limits how strongly the sweep can be read.
+- **Multiple comparisons.** Ten Wilcoxon tests are reported; Holm correction
+  demotes CS-Agg vs Krum on BRFSS to p=0.018 and CS-Agg vs coordinate median
+  on Breast Cancer to non-significant. The core BRFSS result (coordinate
+  median > CS-Agg) survives at p=0.0002.
 
 ---
 

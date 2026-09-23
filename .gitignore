@@ -4,6 +4,19 @@ __pycache__/
 .DS_Store
 *.xpt
 *.zip
-*.csv
 venv/
 .venv/
+anon_mirror/
+anon_mirror.zip
+
+# Raw per-shard outputs are intermediate; the merged file below is the one
+# every table, figure and verification check actually reads.
+*.csv
+!results/experiment_results_merged.csv
+
+# Manuscript source and compiled PDF stay out while the paper is under
+# double-blind review. Added here once a decision comes back.
+overleaf/
+
+# Per-shard run logs embed absolute local paths and help nobody downstream.
+results/v2_shards/
