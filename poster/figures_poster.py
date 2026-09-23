@@ -196,7 +196,7 @@ save("posterD_federated.png")
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# E | QR to the OSF release. Posters get photographed; a link people have to
+# E | QR to the GitHub repo. Posters get photographed; a link people have to
 # retype by hand does not survive that.
 # ─────────────────────────────────────────────────────────────────────────
 print("E: OSF QR code ...")
@@ -204,7 +204,7 @@ import qrcode
 
 qr = qrcode.QRCode(box_size=20, border=1,
                    error_correction=qrcode.constants.ERROR_CORRECT_M)
-qr.add_data("https://osf.io/d5u2q")
+qr.add_data("https://github.com/kunalchevuri/federated-learning-health-robustness")
 qr.make(fit=True)
 qr.make_image(fill_color="#1a1a1a", back_color="white").save(f"{OUT}/posterE_qr.png")
 print("  saved posterE_qr.png")
