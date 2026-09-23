@@ -1,55 +1,98 @@
 r"""
 figures_poster.py — figures for the UNT Research Day poster.
 
-The manuscript figures (figures_v2.py) are drawn at 8 pt for a 3.5 in IEEE
-column. Dropped onto a 24x36 in board they would be unreadable, so everything
-here is redrawn at the poster's real column width with ~20 pt type, heavier
-lines and larger markers.
+Styling follows ChenLiu-1996/figures4papers (its `scientific-figure-making`
+reference): Arial/Helvetica stack, top and right spines removed, heavy
+`axes.linewidth`, frameless legends, no grid, values annotated in place above
+or beside the bars, y-limits tightened to the region that carries the
+comparison, and `dpi=300` (600 for the dense partition panel).
+
+Two deliberate departures from that reference, both requested:
+
+  * Series colours are unchanged -- Dr. Aledhari asked to keep them as they
+    are. The figures4papers blue/green/red semantic palette is therefore not
+    applied.
+  * Every figure is drawn on #E2F0D9, the COI template's own slide fill, so
+    the panels sit on the board instead of floating as white rectangles.
+
+Method comparisons are horizontal, which removes the rotated x-tick labels and
+lets all three comparison figures share one method order (worst at the bottom,
+best at the top) -- the multi-panel consistency that reference asks for.
+
+The federated-learning schematic is no longer drawn here; it is authored as
+HTML + SVG in diagram_federated.html and rendered by render_diagram.py.
 
 Run from the repo root:  python poster/figures_poster.py
 """
 import os
+
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FixedLocator
 
 OUT = "poster/figures"
 os.makedirs(OUT, exist_ok=True)
 
-COL = 7.26  # width of one poster column, in inches
+COL = 7.26     # width of one poster column, in inches
+PAPER = "#E2F0D9"   # the COI template's slide fill
+INK = "#1A1A1A"
 
 df = pd.read_csv("results/experiment_results_merged.csv")
 final = df[df["round"] == 50]
 main = final[(final["feature_set"] == "original") & (final["noisy_fraction"] == 0.2)]
 
+# worst to best by mean AUC on BRFSS; every comparison figure uses this order,
+# drawn bottom-to-top so the best rule sits at the top of the panel.
 ORDER = ["fedavg", "fedprox", "krum", "uniform_mean", "trimmed_mean", "csagg", "coord_median"]
 SHORT = ["FedAvg", "FedProx", "Krum", "Unweighted mean",
          "Trimmed mean", "CS-Agg", "Coord. median"]
 COLOR = {"fedavg": "#e15759", "uniform_mean": "#6b6b6b", "fedprox": "#f28e2b", "csagg": "#4e79a7",
          "krum": "#9c755f", "trimmed_mean": "#af7aa1", "coord_median": "#59a14f"}
 
-# UNT palette, taken from the COI template itself.
-UNT_GREEN = "#007439"
+UNT_GREEN = "#007439"   # taken from the COI template itself
 
 plt.rcParams.update({
-    "font.family": "DejaVu Sans", "font.size": 20,
-    "axes.titlesize": 22, "axes.labelsize": 21,
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans", "sans-serif"],
+    "font.size": 20,
+    "axes.titlesize": 20, "axes.labelsize": 20,
     "xtick.labelsize": 18, "ytick.labelsize": 18, "legend.fontsize": 18,
-    "axes.linewidth": 1.6, "lines.linewidth": 3.2, "lines.markersize": 10,
-    "xtick.major.width": 1.6, "ytick.major.width": 1.6,
-    "xtick.major.size": 6, "ytick.major.size": 6,
+    "axes.linewidth": 2.5,
     "axes.spines.top": False, "axes.spines.right": False,
-    "axes.grid": True, "grid.alpha": 0.25, "grid.linestyle": "--", "grid.linewidth": 1.1,
-    "legend.frameon": True, "legend.framealpha": 0.95, "legend.edgecolor": "#cccccc",
+    "axes.grid": False,
+    "legend.frameon": False,
+    "lines.linewidth": 3.0, "lines.markersize": 10,
+    "xtick.major.width": 2.5, "ytick.major.width": 2.5,
+    "xtick.major.size": 7, "ytick.major.size": 0,
+    "figure.facecolor": PAPER, "axes.facecolor": PAPER, "savefig.facecolor": PAPER,
+    "text.color": INK, "axes.labelcolor": INK, "axes.edgecolor": INK,
+    "xtick.color": INK, "ytick.color": INK,
+    "svg.fonttype": "none",
 })
 
+BAR_EDGE = dict(edgecolor=INK, linewidth=1.5)
 
-def save(name):
-    plt.savefig(f"{OUT}/{name}", dpi=300)
+
+def save(name, dpi=300):
+    plt.savefig(f"{OUT}/{name}", dpi=dpi, facecolor=PAPER)
     plt.close()
     print("  saved", name)
+
+
+def method_axis(ax):
+    """Shared y-axis treatment for the three comparison figures."""
+    ax.set_yticks(np.arange(len(ORDER)))
+    ax.set_yticklabels(SHORT)
+    ax.spines["left"].set_visible(False)
+    ax.set_ylim(-0.7, len(ORDER) - 0.3)
+    # the control is the reference the whole poster turns on -- mark its label
+    labels = ax.get_yticklabels()          # empty on the shared-y right panel
+    if labels:
+        labels[ORDER.index("uniform_mean")].set_fontweight("bold")
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -60,125 +103,78 @@ a01 = main[(main["dataset"] == "brfss") & (main["alpha"] == 0.1)]
 mu = a01.groupby("method")["auc"].mean()
 uc = mu["uniform_mean"]
 
-fig, ax = plt.subplots(figsize=(COL, 8.2), layout="constrained")
-x = np.arange(len(ORDER))
-bars = ax.bar(x, [mu[m] for m in ORDER], 0.70,
-              color=[COLOR[m] for m in ORDER], zorder=3)
-bars[ORDER.index("uniform_mean")].set_edgecolor("black")
+fig, ax = plt.subplots(figsize=(COL, 4.8), layout="constrained")
+y = np.arange(len(ORDER))
+vals = [mu[m] for m in ORDER]
+bars = ax.barh(y, vals, 0.68, color=[COLOR[m] for m in ORDER], zorder=3, **BAR_EDGE)
 bars[ORDER.index("uniform_mean")].set_linewidth(3.5)
 
-ax.axhline(uc, color="black", linestyle="--", linewidth=2.8, zorder=4)
-for xi, m in zip(x, ORDER):
-    ax.text(xi, mu[m] + 0.006, f"{mu[m]:.3f}", ha="center", va="bottom", fontsize=16)
+ax.axvline(uc, color=INK, linestyle="--", linewidth=2.6, zorder=4)
+for yi, v in zip(y, vals):
+    ax.text(v + 0.005, yi, f"{v:.3f}", va="center", ha="left",
+            fontsize=18, fontweight="bold")
 
-ax.text(-0.45, 0.935,
-        "Refusing to give the largest site the\n"
-        "loudest vote captures 79% of the gain\n"
-        "over FedAvg, with no robust statistic.",
-        fontsize=17.5, fontweight="bold", va="top", ha="left", linespacing=1.35)
-ax.text(-0.60, uc - 0.008, "unweighted-mean control (no robust statistic)",
-        ha="left", va="top", fontsize=16, style="italic")
-
-ax.set_xticks(x)
-ax.set_xticklabels(SHORT, fontsize=15.5, rotation=30, ha="right")
-ax.set_ylabel("AUC-ROC  (higher is better)")
-ax.set_ylim(0.50, 0.95)
-ax.set_xlim(-0.72, 6.72)
-ax.set_axisbelow(True)
+ax.text(uc, len(ORDER) - 0.25, "unweighted-mean control\n(no robust statistic)",
+        ha="center", va="bottom", fontsize=16, style="italic", linespacing=1.25)
+method_axis(ax)
+ax.set_xlabel("mean AUC-ROC at alpha = 0.1")
+ax.set_xlim(0.50, 0.845)
+ax.xaxis.set_major_locator(FixedLocator([0.5, 0.6, 0.7, 0.8]))
 save("posterA_decomposition.png")
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# B | Both datasets
+# B | Both datasets, side by side.
 # ─────────────────────────────────────────────────────────────────────────
 print("B: seven-strategy comparison ...")
-fig, axes = plt.subplots(2, 1, figsize=(COL, 8.0), sharex=True, layout="constrained")
-for ax, ds, title in zip(axes, ["brfss", "breast_cancer"],
-                         ["BRFSS survey data: the rules separate",
-                          "Breast Cancer clinical benchmark: they do not"]):
+fig, axes = plt.subplots(1, 2, figsize=(COL, 4.6), sharey=True, layout="constrained")
+for ax, ds, title, xlim, ticks in zip(
+        axes, ["brfss", "breast_cancer"],
+        ["BRFSS survey data", "Breast Cancer"],
+        [(0.50, 0.84), (0.86, 1.02)],
+        [[0.5, 0.6, 0.7, 0.8], [0.9, 1.0]]):
     sub = main[main["dataset"] == ds]
     m = sub.groupby("method")["auc"].mean().reindex(ORDER)
     e = sub.groupby("method")["auc"].sem().reindex(ORDER)
-    ax.bar(np.arange(len(ORDER)), m, 0.70, yerr=e, capsize=5,
-           color=[COLOR[k] for k in ORDER], error_kw={"elinewidth": 2.0}, zorder=3)
-    ax.set_ylabel("AUC-ROC")
-    ax.set_title(title, fontsize=18)
-    ax.set_axisbelow(True)
-    ax.set_ylim(0.50, 0.88) if ds == "brfss" else ax.set_ylim(0.88, 1.06)
-axes[1].text(3.0, 1.032, "every rule but Krum sits at the ceiling",
-             fontsize=16.5, style="italic", ha="center", va="center")
-axes[1].set_xticks(np.arange(len(ORDER)))
-axes[1].set_xticklabels(SHORT, fontsize=15.5, rotation=30, ha="right")
+    ax.barh(np.arange(len(ORDER)), m, 0.68, xerr=e, capsize=4,
+            color=[COLOR[k] for k in ORDER], error_kw={"elinewidth": 2.0, "ecolor": INK},
+            zorder=3, **BAR_EDGE)
+    ax.set_title(title, fontsize=17, pad=10)
+    ax.set_xlabel("AUC-ROC")
+    ax.set_xlim(*xlim)
+    ax.xaxis.set_major_locator(FixedLocator(ticks))
+    method_axis(ax)
+
 save("posterB_both_datasets.png")
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# C | Krum's instability: every run at alpha=0.1
+# C | Krum's instability: every individual run at alpha=0.1.
+# Points, not bars -- the spread is the whole message, and a bar behind it
+# only restates the mean the marker already carries.
 # ─────────────────────────────────────────────────────────────────────────
 print("C: run-level spread at alpha=0.1 ...")
-fig, ax = plt.subplots(figsize=(COL, 6.9), layout="constrained")
-for i, m in enumerate(ORDER):
-    ax.bar(i, mu[m], 0.62, color=COLOR[m], alpha=0.45, zorder=2)
+fig, ax = plt.subplots(figsize=(COL, 5.0), layout="constrained")
 rng = np.random.default_rng(0)
-for _, r in a01.iterrows():
-    i = ORDER.index(r["method"])
-    ax.scatter(i + rng.uniform(-0.2, 0.2), r["auc"], color=COLOR[r["method"]],
-               s=90, alpha=0.9, zorder=3, edgecolors="white", linewidth=1.4)
-ax.axhline(0.5, color="#444444", linestyle="--", linewidth=2.4, zorder=1)
-ax.text(6.5, 0.515, "random guessing", ha="right", va="bottom", fontsize=17, color="#444444")
-ax.annotate("Krum's worst run:\n0.328, worse than\na coin flip",
-            xy=(2, 0.3275), xytext=(2.75, 0.345), va="bottom",
-            fontsize=16, fontweight="bold",
-            arrowprops=dict(arrowstyle="->", lw=2.4, color="#1a1a1a"))
-ax.set_xticks(np.arange(len(ORDER)))
-ax.set_xticklabels(SHORT, fontsize=15.5, rotation=30, ha="right")
-ax.set_ylabel("AUC-ROC (each of 12 runs)")
-ax.set_ylim(0.29, 0.82)
-ax.set_axisbelow(True)
+for i, m in enumerate(ORDER):
+    runs = a01[a01["method"] == m]["auc"].values
+    ax.scatter(runs, i + rng.uniform(-0.22, 0.22, len(runs)), color=COLOR[m],
+               s=110, alpha=0.85, zorder=3, edgecolors="white", linewidth=1.4)
+    ax.plot([mu[m], mu[m]], [i - 0.36, i + 0.36], color=INK, linewidth=3.0, zorder=4)
+
+ax.axvline(0.5, color="#555555", linestyle="--", linewidth=2.4, zorder=1)
+ax.text(0.5, len(ORDER) - 0.25, "random guessing", ha="center", va="bottom",
+        fontsize=16, color="#555555")
+ax.annotate("Krum's worst run: 0.328,\nworse than a coin flip",
+            xy=(0.3275, 2.05), xytext=(0.345, 3.30), va="center", ha="left",
+            fontsize=16, fontweight="bold", linespacing=1.3,
+            arrowprops=dict(arrowstyle="->", lw=2.4, color=INK))
+
+method_axis(ax)
+ax.set_xlabel("AUC-ROC of each run  (bar = mean)")
+ax.set_xlim(0.29, 0.83)
+ax.xaxis.set_major_locator(FixedLocator([0.3, 0.4, 0.5, 0.6, 0.7, 0.8]))
 save("posterC_runlevel.png")
-
-
-# ─────────────────────────────────────────────────────────────────────────
-# D | What federated learning is, as a picture.
-# ─────────────────────────────────────────────────────────────────────────
-print("D: federated learning schematic ...")
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
-
-fig, ax = plt.subplots(figsize=(COL, 3.1), layout="constrained")
-ax.set_xlim(0, 10)
-ax.set_ylim(0, 5.0)
-ax.axis("off")
-ax.grid(False)
-
-
-def box(x, y, w, h, label, face, edge, fs=15):
-    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.03,rounding_size=0.10",
-                                facecolor=face, edgecolor=edge, linewidth=2.2))
-    ax.text(x + w / 2, y + h / 2, label, ha="center", va="center",
-            fontsize=fs, fontweight="bold", linespacing=1.2)
-
-
-SITES = [(4.30, 1.55, "Site 1"), (2.57, 0.90, "Site 2"), (1.49, 0.64, "Site 3")]
-for top, h, label in SITES:
-    box(0.10, top - h, 2.45, h, label, "#dce7f1", "#4e79a7")
-
-box(4.45, 1.95, 2.30, 1.20, "Merge rule", "#e8e8e8", "#6b6b6b")
-box(7.80, 1.95, 2.10, 1.20, "One shared\nmodel", "#dcebd6", UNT_GREEN)
-
-for top, h, _ in SITES:
-    ax.add_patch(FancyArrowPatch((2.68, top - h / 2), (4.33, 2.55), arrowstyle="-|>",
-                                 mutation_scale=20, linewidth=1.9, color="#4e79a7",
-                                 connectionstyle="arc3,rad=0.05"))
-ax.add_patch(FancyArrowPatch((6.88, 2.55), (7.68, 2.55), arrowstyle="-|>",
-                             mutation_scale=20, linewidth=1.9, color=UNT_GREEN))
-
-ax.text(3.60, 4.30, "model updates only,\nnever patient records", ha="center",
-        va="bottom", fontsize=13, style="italic", color="#33536f", linespacing=1.2)
-ax.text(1.33, 0.60, "sites hold very unequal\namounts of data", ha="center",
-        va="top", fontsize=13, style="italic", color="#33536f", linespacing=1.2)
-ax.text(5.60, 1.78, "how much should\neach site count?", ha="center", va="top",
-        fontsize=13.5, style="italic", color="#1a1a1a", linespacing=1.2)
-save("posterD_federated.png")
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -210,26 +206,28 @@ s01 = np.sort(client_sizes(0.1))[::-1]
 s10 = np.sort(client_sizes(1.0))[::-1]
 assert s01.max() == 106481 and (s01 == 0).sum() == 2, "partition drifted from the verified run"
 
-fig, axes = plt.subplots(2, 1, figsize=(COL, 4.7), sharex=True, sharey=True,
+fig, axes = plt.subplots(2, 1, figsize=(COL, 5.6), sharex=True, sharey=True,
                          layout="constrained")
 for ax, s, lab in zip(axes, [s01, s10],
                       ["alpha = 0.1  (the harshest split we test)",
                        "alpha = 1.0  (mild split, for comparison)"]):
-    ax.bar(np.arange(20), s / 1000, 0.75, color=UNT_GREEN, zorder=3)
+    ax.bar(np.arange(20), s / 1000, 0.72, color=UNT_GREEN, zorder=3, **BAR_EDGE)
     ax.set_title(lab, fontsize=17)
-    ax.set_ylabel("training rows\n(thousands)", fontsize=15)
-    ax.set_axisbelow(True)
+    ax.set_ylabel("training rows\n(thousands)", fontsize=15, linespacing=1.2)
     ax.tick_params(labelsize=15)
+    ax.yaxis.set_major_locator(FixedLocator([0, 50, 100]))
 
 axes[0].annotate("one site holds 106,481 rows:\n34.8% of all training data",
-                 xy=(0.42, 100), xytext=(3.1, 82), fontsize=15, fontweight="bold",
-                 arrowprops=dict(arrowstyle="->", lw=2.2, color="#1a1a1a"))
-axes[0].annotate("two sites get\nnothing at all", xy=(19, 3), xytext=(13.8, 42),
-                 fontsize=14, arrowprops=dict(arrowstyle="->", lw=2.0, color="#1a1a1a"))
+                 xy=(0.45, 100), xytext=(3.2, 78), fontsize=15, fontweight="bold",
+                 linespacing=1.25,
+                 arrowprops=dict(arrowstyle="->", lw=2.2, color=INK))
+axes[0].annotate("two sites get\nnothing at all", xy=(19, 3), xytext=(13.6, 40),
+                 fontsize=14, linespacing=1.25,
+                 arrowprops=dict(arrowstyle="->", lw=2.0, color=INK))
 axes[1].set_xlabel("the 20 sites, largest to smallest", fontsize=16)
-axes[1].set_xticks([0, 4, 9, 14, 19])
+axes[1].xaxis.set_major_locator(FixedLocator([0, 4, 9, 14, 19]))
 axes[1].set_xticklabels(["1", "5", "10", "15", "20"])
-save("posterF_partition.png")
+save("posterF_partition.png", dpi=600)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -244,22 +242,24 @@ noi = (fa[(fa["alpha"] == 0.5) & (fa["noise_rate"] == 0.0)]["auc"].mean()
        - fa[(fa["alpha"] == 0.5) & (fa["noise_rate"] == 0.3)]["auc"].mean())
 assert abs(het - 0.2348) < 5e-4 and abs(noi - 0.0016) < 5e-4, "drifted from the paper"
 
-fig, ax = plt.subplots(figsize=(COL, 4.9), layout="constrained")
-ax.bar([0, 1], [het, noi], 0.55, color=[COLOR["fedavg"], "#9aa0a6"], zorder=3)
-for xi, v in [(0, het), (1, noi)]:
-    ax.text(xi, v + 0.007, f"{v:.4f}", ha="center", va="bottom",
-            fontsize=19, fontweight="bold")
-ax.set_xticks([0, 1])
-ax.set_xticklabels(["Lopsided data\n(alpha 1.0 to 0.1)", "Broken labels\n(0% to 30%)"],
-                   fontsize=17)
-ax.set_ylabel("AUC lost by FedAvg", fontsize=18)
-ax.set_ylim(0, 0.30)
-ax.set_xlim(-0.6, 2.05)
-ax.set_axisbelow(True)
-ax.annotate("", xy=(1.38, 0.0016), xytext=(1.38, het),
-            arrowprops=dict(arrowstyle="<->", lw=2.4, color="#1a1a1a"))
-ax.text(1.48, het / 2, "149x\nlarger", fontsize=20, fontweight="bold",
-        va="center", ha="left", linespacing=1.2)
+fig, ax = plt.subplots(figsize=(COL, 3.0), layout="constrained")
+ax.barh([0, 1], [noi, het], 0.52, color=["#9aa0a6", COLOR["fedavg"]], zorder=3, **BAR_EDGE)
+ax.text(noi + 0.006, 0, f"{noi:.4f}", va="center", ha="left", fontsize=19, fontweight="bold")
+ax.text(het + 0.006, 1, f"{het:.4f}", va="center", ha="left", fontsize=19, fontweight="bold")
+
+ax.annotate("", xy=(noi, 0.5), xytext=(het, 0.5),
+            arrowprops=dict(arrowstyle="<->", lw=2.4, color=INK))
+ax.text((noi + het) / 2, 0.40, "149x larger", fontsize=19, fontweight="bold",
+        ha="center", va="top")
+
+ax.set_yticks([0, 1])
+ax.set_yticklabels(["Broken labels\n(0% to 30%)", "Lopsided data\n(alpha 1.0 to 0.1)"],
+                   fontsize=17, linespacing=1.25)
+ax.spines["left"].set_visible(False)
+ax.set_xlabel("AUC lost by FedAvg", fontsize=18)
+ax.set_xlim(0, 0.30)
+ax.set_ylim(-0.55, 1.55)
+ax.xaxis.set_major_locator(FixedLocator([0, 0.1, 0.2, 0.3]))
 save("posterG_stressors.png")
 
 
@@ -273,7 +273,8 @@ qr = qrcode.QRCode(box_size=20, border=1,
                    error_correction=qrcode.constants.ERROR_CORRECT_M)
 qr.add_data("https://github.com/kunalchevuri/federated-learning-health-robustness")
 qr.make(fit=True)
-qr.make_image(fill_color="#1a1a1a", back_color="white").save(f"{OUT}/posterE_qr.png")
+qr.make_image(fill_color=INK, back_color="white").save(f"{OUT}/posterE_qr.png")
 print("  saved posterE_qr.png")
 
 print("\nposter figures written to", OUT)
+print("the schematic is built separately:  python poster/render_diagram.py")

@@ -69,9 +69,13 @@ figures_v2.py   figures 8-11 (baselines, sweep, ablation; used in the paper).
                 Generated at final print size (COL=3.5in, FULL=7.16in) so
                 LaTeX applies no scaling and font sizes match across figures.
                 No figure carries an embedded title -- captions live in the .tex.
-poster/         UNT Research Day poster: build_poster.py fills the COI
-                template via python-pptx, figures_poster.py redraws the
-                figures at poster scale (~20pt type for a 24x36in board)
+poster/         UNT Research Day poster (24x36in). build_poster.py fills
+                the COI template via python-pptx and lays out two tables;
+                figures_poster.py redraws the charts at poster scale in the
+                figures4papers house style; diagram_federated.html is the
+                schematic, authored as SVG per the diagram-design system and
+                rasterised by render_diagram.py (headless Chrome).
+                Build order: figures_poster.py, render_diagram.py, build_poster.py
 verify_paper_numbers.py   181 assertions checking the paper's numbers vs. the CSV
 results/        merged results CSV and figures
 ```
