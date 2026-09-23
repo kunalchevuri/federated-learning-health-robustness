@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<!--
+  diagram_federated.html — the "how federated learning works" schematic.
+
+  Built on the cathrynlavery/diagram-design system, with its semantic tokens
+  remapped to UNT's palette (the style guide's sanctioned "brand handoff"):
+
+      accent      -> UNT green #007439      one accent, one focal node
+      paper       -> #E2F0D9                the COI template's own slide fill
+      ink / muted / soft / rule             neutral greys, no second hue
+
+  Its hard rules are kept: every coordinate divisible by the grid unit,
+  hairline strokes, radius 18/24 (its 6/8 at this scale), node fills by
+  semantic role, mono reserved for technical values, one italic callout.
+
+  The whole spec is scaled 3x from the native 12px/1px/6r screen sizes so the
+  type lands at 13-20 pt when the PNG is placed 7.26 in wide on a 24x36 board;
+  the grid unit scales with it, 4 -> 12.
+
+  Site box heights are the real partition shares at alpha = 0.1, seed 42.
+
+  Rendered by render_diagram.py (headless Chrome).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --paper:       #E2F0D9;
+    --ink:         #1A1A1A;
+    --muted:       #5C6B63;
+    --soft:        #7C8A82;
+    --accent:      #007439;
+    --accent-tint: rgba(0,116,57,0.09);
+    --input-fill:  rgba(26,26,26,0.05);
+  }
+  html, body { margin: 0; padding: 0; background: var(--paper); }
+  svg { display: block; }
+  .name    { font-family: Calibri, "Segoe UI", sans-serif; font-weight: 700; fill: var(--ink); font-size: 36px; }
+  .sub     { font-family: Consolas, "Geist Mono", monospace; font-size: 23px; fill: var(--muted); }
+  .eyebrow { font-family: Consolas, "Geist Mono", monospace; font-size: 23px; font-weight: 600;
+             letter-spacing: 3px; text-transform: uppercase; fill: var(--soft); }
+  .callout { font-family: Calibri, "Segoe UI", sans-serif; font-size: 36px; font-style: italic; fill: var(--ink); }
+  .note    { font-family: Calibri, "Segoe UI", sans-serif; font-size: 27px; fill: var(--muted); }
+</style>
+</head>
+<body>
+<svg width="1080" height="456" viewBox="0 0 1080 456" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="armuted" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#5C6B63"/>
+    </marker>
+    <marker id="araccent" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#007439"/>
+    </marker>
+  </defs>
+
+  <rect width="1080" height="456" fill="var(--paper)"/>
+
+  <!-- ── the sites: node type `input`; box height = real share of training data ── -->
+  <g>
+    <rect x="0" y="72" width="288" height="96" rx="18"
+          fill="var(--input-fill)" stroke="var(--soft)" stroke-width="3"/>
+    <text class="name" x="24" y="114">Site 1</text>
+    <text class="sub"  x="24" y="146">106,481 rows</text>
+    <text class="sub"  x="264" y="146" text-anchor="end">34.8%</text>
+
+    <rect x="0" y="192" width="288" height="48" rx="18"
+          fill="var(--input-fill)" stroke="var(--soft)" stroke-width="3"/>
+    <text class="name" x="24" y="226" font-size="31">Site 2</text>
+    <text class="sub"  x="264" y="225" text-anchor="end">17.5%</text>
+
+    <rect x="0" y="264" width="288" height="36" rx="18"
+          fill="var(--input-fill)" stroke="var(--soft)" stroke-width="3"/>
+    <text class="name" x="24" y="291" font-size="27">Site 3</text>
+    <text class="sub"  x="264" y="290" text-anchor="end">13.3%</text>
+  </g>
+
+  <!-- the remaining 17, the last two holding nothing -->
+  <g>
+    <rect x="0" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="16" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="32" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="48" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="64" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="80" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="96" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="112" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="128" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="144" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="160" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="176" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="192" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="208" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="224" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
+    <rect x="240" y="336" width="12" height="12" rx="4" fill="none" stroke="var(--soft)" stroke-width="2.4"/>
+    <rect x="256" y="336" width="12" height="12" rx="4" fill="none" stroke="var(--soft)" stroke-width="2.4"/>
+    <text class="note" x="0" y="426">…17 more, two handed no data at all</text>
+  </g>
+
+  <!-- ── the fan-in: model updates only ── -->
+  <g stroke="var(--muted)" stroke-width="3" fill="none" marker-end="url(#armuted)">
+    <path d="M 288 120 C 372 120, 408 198, 480 198"/>
+    <path d="M 288 216 C 372 216, 408 198, 480 198"/>
+    <path d="M 288 282 C 372 282, 408 198, 480 198"/>
+  </g>
+  <text class="eyebrow" x="312" y="96">Model updates only</text>
+
+  <!-- ── the merge rule: the one focal node ── -->
+  <rect x="480" y="138" width="180" height="120" rx="24"
+        fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="4"/>
+  <text class="name" x="570" y="190" text-anchor="middle">Merge</text>
+  <text class="name" x="570" y="226" text-anchor="middle">rule</text>
+
+  <!-- ── out: the shared model ── -->
+  <path d="M 660 198 L 816 198" stroke="var(--accent)" stroke-width="4"
+        fill="none" marker-end="url(#araccent)"/>
+  <rect x="804" y="150" width="240" height="96" rx="18"
+        fill="#FFFFFF" stroke="var(--ink)" stroke-width="3"/>
+  <text class="name" x="924" y="190" text-anchor="middle">One shared</text>
+  <text class="name" x="924" y="226" text-anchor="middle">model</text>
+  <text class="eyebrow" x="924" y="282" text-anchor="middle">No records move</text>
+
+  <!-- the research question, the single editorial aside -->
+  <text class="callout" x="480" y="384">how much should each site count?</text>
+</svg>
+</body>
+</html>

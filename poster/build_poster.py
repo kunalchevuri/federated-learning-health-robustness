@@ -6,21 +6,34 @@ bar on every section, sub-headers written as complete thoughts rather than
 labels, each figure sitting inside the section it belongs to, and body text as
 one-sentence bullets.
 
-The visual identity is UNT's only. Every colour below is read out of the COI
-template itself -- UNT_GREEN is the template's own heading colour and the pale
-background is the template slide's. Nothing is taken from the example posters.
+Two tables carry the numbers a judge would otherwise have to dig out of the
+bullets: a results summary under the headline result, and the study design
+under Methods.
+
+The visual identity is UNT's only. UNT_GREEN and the pale board are read out
+of the COI template itself; UNT_SUB and UNT_BAND are tints of that same hue,
+mixed here rather than lifted from any file. Nothing comes from the example
+posters.
 
 Kept from the template: the 24x36 canvas, the green header bar, the UNT logo
 and Calibri. The template's seven body text boxes are removed, because the new
 section list does not map onto them.
 
+The logo is the College of Information lockup, which no longer matches the
+college named in the header, so it is cropped back to the primary UNT mark --
+see LOGO_CROP.
+
 Section heights are estimated (see `body`) rather than measured, since
 PowerPoint resolves autofit at render time; the script prints where each
 column ends so the layout can be balanced against BOTTOM.
 
-    python poster/build_poster.py
+    python poster/figures_poster.py     # charts
+    python poster/render_diagram.py     # the schematic
+    python poster/build_poster.py       # this file
 """
+import copy
 import os
+
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
@@ -32,9 +45,11 @@ TEMPLATE = os.path.expanduser(r"~/Downloads/COI Research Poster Template 2x3.ppt
 OUT = "poster/FL_Poster_Chevuri_Aledhari.pptx"
 FIGDIR = "poster/figures"
 
-# ── UNT palette, read out of the template ────────────────────────────────
+# ── UNT palette ──────────────────────────────────────────────────────────
 UNT_GREEN = RGBColor(0x00, 0x74, 0x39)   # the template's own heading colour
 UNT_SUB = RGBColor(0x3F, 0x8C, 0x5C)     # lighter tint of the same hue
+UNT_BAND = RGBColor(0xCF, 0xE3, 0xC4)    # pale tint, for the control row
+PAPER = RGBColor(0xE2, 0xF0, 0xD9)       # the template slide's own fill
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 INK = RGBColor(0x1A, 0x1A, 0x1A)
 FONT = "Calibri"                          # the template's minor font
@@ -43,18 +58,30 @@ FONT = "Calibri"                          # the template's minor font
 COL_W = 7.26
 COL_X = [0.60, 8.36, 16.12]
 TOP = 3.62                                # header bar ends at 3.27
-BOTTOM = 34.2   # the footer bar starts at 34.40
+BOTTOM = 34.2                             # the footer bar starts at 34.40
 
 BAR_H, BAR_PT = 0.78, 25
 SUB_H, SUB_PT = 0.62, 19
 BODY_PT = 19
-REF_PT = 16
+REF_PT = 17
+TBL_PT = 15
 LINE21 = 0.355                            # height of one 21 pt line, in inches
 GAP = 0.20
 
 TITLE = "Robustness or Weighting? Re-Evaluating Federated Aggregation on Heterogeneous Health Data"
 AUTHORS = "Kunal Chevuri and Dr. Mohammed Aledhari"
-AFFIL = "University of North Texas"
+# Both names read exactly as Dr. Aledhari specified them. They share two lines
+# rather than three because a fifth header line drops below the green bar.
+AFFIL = ["Data Science Department",
+         "College of Artificial Intelligence and Advanced Analytics"
+         "  ·  University of North Texas"]
+
+# The supplied logo is the College of Information lockup. Cropping its bottom
+# off leaves the primary UNT mark, which is what the header should carry now
+# that the college has a different name. Measured off the image itself: the
+# wordmark ends at row 492 of 901, the college text runs 500-583.
+LOGO_CROP = 0.45394
+LOGO_BOX = (19.30, 0.76, 3.98, 1.76)      # left, top, width, height
 
 # ═════════════════════════════════════════════════════════════════════════
 # Content. Every bullet is one sentence, as in the example posters.
@@ -98,26 +125,48 @@ METHODS = [
     "differs from FedAvg only in ignoring how much data each site holds.",
     "Anything the control gains over FedAvg is therefore weighting alone, "
     "which is what isolates the effect.",
-    "Labels are flipped at 20% of sites, across 0 to 30% of their records.",
-    "On BRFSS we flip them only the way real people err, reporting no "
+    "On BRFSS we corrupt labels only the way real people err, reporting no "
     "depression when they have it.",
-    "624 conditions cover every combination of rule, dataset, split, noise "
-    "level and random seed.",
-    "Each runs 50 rounds, scored by AUC-ROC on a clean held-out test set the "
-    "sites never see.",
-    "Differences are tested with Wilcoxon signed-rank, Holm-corrected within "
-    "each of three comparison families.",
 ]
+
+# ── Table 2: the study design ────────────────────────────────────────────
+DESIGN_TABLE = [
+    ["What we varied", "Levels tested"],
+    ["Merge rules", "7, including the unweighted-mean control"],
+    ["Datasets", "BRFSS 2023 and Breast Cancer Wisconsin"],
+    ["Split skew, alpha", "0.1, 0.5, 1.0 — lower is more lopsided"],
+    ["Label noise", "0, 10, 20, 30% of records, at 20% of sites"],
+    ["Random seeds", "42, 123, 456"],
+    ["Every run", "20 sites, 50 rounds, scored by AUC-ROC"],
+    ["Total", "624 completed runs"],
+]
+DESIGN_W = [2.20, 5.06]
 
 RES_A_SUB = "Most of the gain over FedAvg is weighting, not robustness"
 RES_A = [
     "The control alone recovers 79 to 98% of what the three strongest robust "
     "rules gain over FedAvg.",
-    "Only coordinate-wise median clearly clears it, at +0.0163 AUC "
-    "(Holm p < 0.0001).",
-    "Trimmed mean's +0.0026 is significant but negligible, and CS-Agg cannot "
-    "be told apart from the control (p = 0.22).",
+    "Only coordinate-wise median clearly clears the control, and CS-Agg "
+    "cannot be told apart from it at all.",
 ]
+
+# ── Table 1: the results summary ─────────────────────────────────────────
+# Every figure below reproduces from results/experiment_results_merged.csv;
+# the deltas and Holm-corrected p-values use the same Wilcoxon signed-rank
+# procedure as verify_paper_numbers.py.
+RESULTS_TABLE = [
+    ["Merge rule", "Mean\nAUC", "Worst\nrun", "vs.\nFedAvg", "vs.\ncontrol", "Holm p\nvs. control"],
+    ["FedAvg", "0.7081", "0.4002", "—", "-0.0584", "0.0036"],
+    ["FedProx", "0.7286", "0.4874", "+0.0205", "-0.0379", "0.0036"],
+    ["Krum", "0.7439", "0.3275", "+0.0358", "-0.0226", "0.22  n.s."],
+    ["Unweighted mean", "0.7665", "0.6405", "+0.0584", "—", "control"],
+    ["Trimmed mean", "0.7691", "0.6143", "+0.0610", "+0.0026", "0.0036"],
+    ["CS-Agg", "0.7746", "0.7025", "+0.0665", "+0.0081", "0.22  n.s."],
+    ["Coord. median", "0.7828", "0.7279", "+0.0747", "+0.0163", "< 0.0001"],
+]
+RESULTS_W = [2.00, 0.90, 0.90, 1.05, 1.05, 1.36]
+RESULTS_CAPTION = ("36 runs per rule on BRFSS. The three robust rules that beat the control "
+                   "beat it by far less than the control beats FedAvg.")
 
 RES_C_SUB = "Krum is unreliable, not merely weaker"
 RES_C = [
@@ -193,6 +242,12 @@ slide = prs.slides[0]
 shapes = {sh.name: sh for sh in slide.shapes}
 
 
+# Layout runs twice per column: once with DRY set, to measure, and once for
+# real with the section gap solved so the column lands just above the footer.
+DRY = False
+G = GAP
+
+
 def drop(name):
     sh = shapes.get(name)
     if sh is not None:
@@ -201,6 +256,8 @@ def drop(name):
 
 def bar(col, y, text, height=BAR_H, size=BAR_PT, fill=UNT_GREEN):
     """A filled UNT-green section header with white text."""
+    if DRY:
+        return y + height + 0.12
     sh = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(COL_X[col]),
                                 Inches(y), Inches(COL_W), Inches(height))
     sh.fill.solid()
@@ -221,13 +278,16 @@ def bar(col, y, text, height=BAR_H, size=BAR_PT, fill=UNT_GREEN):
     return y + height + 0.12
 
 
-def body(col, y, items, size=BODY_PT, bullet=True, width=None):
+def body(col, y, items, size=BODY_PT, bullet=True, width=None, italic=False,
+         colour=INK):
     """Bulleted body text; returns the estimated y just below it."""
     w = width if width else COL_W
     # 21 pt wraps at ~52 chars in a 7.26 in column; scale with size and width.
     per_line = int(52 * (21.0 / size) * (w / COL_W))
     lines = sum(max(1, -(-len(t) // per_line)) for t in items)
     h = lines * (LINE21 * size / 21.0) + 0.135 * len(items) + 0.10
+    if DRY:
+        return y + h + G
 
     tb = slide.shapes.add_textbox(Inches(COL_X[col]), Inches(y),
                                   Inches(w), Inches(h))
@@ -246,28 +306,117 @@ def body(col, y, items, size=BODY_PT, bullet=True, width=None):
             pPr.append(pPr.makeelement(qn("a:buChar"), {"char": "•"}))
         r = p.add_run()
         r.text = t
-        r.font.name, r.font.size = FONT, Pt(size)
-        r.font.color.rgb = INK
-    return y + h + GAP
+        r.font.name, r.font.size, r.font.italic = FONT, Pt(size), italic
+        r.font.color.rgb = colour
+    return y + h + G
+
+
+NO_STYLE = "{2D5ABB26-0587-4C30-8999-92F81FD0307C}"   # "No Style, No Grid"
+
+
+def _unstyle(tbl):
+    """Strip the inherited blue table style so our own fills are what shows."""
+    tbl.first_row = False
+    tbl.horz_banding = False
+    tblPr = tbl._tbl.find(qn("a:tblPr"))
+    for el in tblPr.findall(qn("a:tableStyleId")):
+        tblPr.remove(el)
+    sid = tblPr.makeelement(qn("a:tableStyleId"), {})
+    sid.text = NO_STYLE
+    tblPr.append(sid)                       # schema puts tableStyleId last
+
+
+def table(col, y, rows, widths, size=TBL_PT, row_h=0.42, hdr_h=0.66,
+          highlight=None, centre_from=1):
+    """A UNT-green-headed table with zebra rows; returns the y below it.
+
+    `highlight` is the body row index to mark as the control; `centre_from`
+    is the first column to centre (earlier columns stay left-aligned).
+    """
+    n, m = len(rows), len(rows[0])
+    h = hdr_h + (n - 1) * row_h
+    if DRY:
+        return y + h + G
+    gf = slide.shapes.add_table(n, m, Inches(COL_X[col]), Inches(y),
+                                Inches(sum(widths)), Inches(h))
+    tbl = gf.table
+    _unstyle(tbl)
+    for j, cw in enumerate(widths):
+        tbl.columns[j].width = Inches(cw)
+    tbl.rows[0].height = Inches(hdr_h)
+    for i in range(1, n):
+        tbl.rows[i].height = Inches(row_h)
+
+    for i, row in enumerate(rows):
+        marked = highlight is not None and i == highlight
+        for j, txt in enumerate(row):
+            c = tbl.cell(i, j)
+            c.margin_left = c.margin_right = Inches(0.10)
+            c.margin_top = c.margin_bottom = Inches(0.02)
+            c.vertical_anchor = MSO_ANCHOR.MIDDLE
+            c.fill.solid()
+            if i == 0:
+                c.fill.fore_color.rgb = UNT_GREEN
+            elif marked:
+                c.fill.fore_color.rgb = UNT_BAND
+            else:
+                c.fill.fore_color.rgb = WHITE if i % 2 else PAPER
+            tf = c.text_frame
+            tf.word_wrap = True
+            align = PP_ALIGN.CENTER if j >= centre_from else PP_ALIGN.LEFT
+            for k, line in enumerate(txt.split("\n")):
+                p = tf.paragraphs[0] if k == 0 else tf.add_paragraph()
+                p.alignment = align
+                r = p.add_run()
+                r.text = line
+                r.font.name = FONT
+                r.font.size = Pt(size)
+                r.font.bold = (i == 0) or marked
+                r.font.color.rgb = WHITE if i == 0 else INK
+    return y + h + G
 
 
 def figure(col, y, fn, height, width=None, left=None):
+    if DRY:
+        return y + height + G
     w = width if width else COL_W
     x = left if left is not None else COL_X[col]
     slide.shapes.add_picture(os.path.join(FIGDIR, fn), Inches(x), Inches(y),
                              Inches(w), Inches(height))
-    return y + height + GAP
+    return y + height + G
 
 
 # ── header ───────────────────────────────────────────────────────────────
 hdr = shapes["TextBox 4"]
 hdr.width = Inches(18.4)
-for para, txt, size in zip(hdr.text_frame.paragraphs, [TITLE, AUTHORS, AFFIL], [44, 30, 30]):
-    runs = para.runs
-    runs[0].text = txt
-    runs[0].font.size = Pt(size)
-    for r in runs[1:]:
-        r._r.getparent().remove(r._r)
+hdr_paras = hdr.text_frame.paragraphs
+lines = [(TITLE, 42), (AUTHORS, 28)] + [(a, 24) for a in AFFIL]
+
+for i, (txt, size) in enumerate(lines):
+    if i < len(hdr_paras):
+        para = hdr_paras[i]
+        runs = para.runs
+        runs[0].text = txt
+        runs[0].font.size = Pt(size)
+        for r in runs[1:]:
+            r._r.getparent().remove(r._r)
+    else:
+        # clone the last styled paragraph so the new lines inherit its run
+        # properties instead of falling back to the theme default
+        src = hdr.text_frame.paragraphs[-1]._p
+        new = copy.deepcopy(src)
+        src.getparent().append(new)
+        para = hdr.text_frame.paragraphs[-1]
+        para.runs[0].text = txt
+        para.runs[0].font.size = Pt(size)
+        for r in para.runs[1:]:
+            r._r.getparent().remove(r._r)
+
+# crop the College of Information lockup back to the primary UNT mark
+logo = shapes["Picture 2"]
+logo.crop_bottom = LOGO_CROP
+logo.left, logo.top = Inches(LOGO_BOX[0]), Inches(LOGO_BOX[1])
+logo.width, logo.height = Inches(LOGO_BOX[2]), Inches(LOGO_BOX[3])
 
 for n in ("TextBox 7", "TextBox 10", "TextBox 12", "TextBox 14",
           "TextBox 17", "TextBox 21", "TextBox 23", "Picture 5"):
@@ -276,70 +425,94 @@ for n in ("TextBox 7", "TextBox 10", "TextBox 12", "TextBox 14",
 # The UNT .docx version of this template closes with a green footer bar; the
 # .pptx version does not. Clone the header rectangle so the footer carries the
 # template's own gradient rather than a colour we invented.
-import copy
 _hdr_rect = shapes["Rectangle 15"]
 _hdr_rect._element.getparent().append(copy.deepcopy(_hdr_rect._element))
 footer = list(slide.shapes)[-1]
 footer.left, footer.top = 0, Inches(34.40)
 footer.width, footer.height = Inches(24.0), Inches(1.60)
 
-# ── column 1: the setup, ending mid-Methods ──────────────────────────────
-# Methods deliberately runs off the bottom of this column and resumes at the
-# top of the next, which is how the example posters carry a long section.
-y = TOP
-y = bar(0, y, "Motivation & Questions")
-y = body(0, y, MOTIVATION)
-y = bar(0, y, "Background: how federated learning works")
-y = body(0, y, BACKGROUND)
-y = figure(0, y, "posterD_federated.png", 2.85)
-y = bar(0, y, "Dataset: two health datasets, split 20 ways")
-y = body(0, y, DATASET)
-y = figure(0, y, "posterF_partition.png", 4.35)
-y = body(0, y, DATASET_AFTER)
-y = bar(0, y, "Methods: seven merge rules and one control")
-y = body(0, y, METHODS[:3])
-# References sit bottom-left, where the Bylinskii example puts its paper and
-# dataset box. Chien carries no reference section at all; keeping one is the
-# single deliberate departure from the examples.
-y = bar(0, y, "References")
-y = body(0, y, REFERENCES, size=REF_PT, bullet=False)
-print(f"  column 1 ends at {y - GAP:5.2f} in   (limit {BOTTOM})")
+# ═════════════════════════════════════════════════════════════════════════
+# Columns. Each is a function of the section gap so it can be measured with
+# DRY set and then re-run with a gap that lands the column just above the
+# footer -- otherwise the three columns stop wherever their content happens
+# to end and leave a dead band across the bottom of the board.
+# ═════════════════════════════════════════════════════════════════════════
+def column_1():
+    y = TOP
+    y = bar(0, y, "Motivation & Questions")
+    y = body(0, y, MOTIVATION)
+    y = bar(0, y, "Background: how federated learning works")
+    y = body(0, y, BACKGROUND)
+    y = figure(0, y, "posterD_federated.png", 3.07)
+    y = bar(0, y, "Dataset: two health datasets, split 20 ways")
+    y = body(0, y, DATASET)
+    y = figure(0, y, "posterF_partition.png", 5.60)
+    y = body(0, y, DATASET_AFTER)
+    # References sit bottom-left, where the Bylinskii example puts its paper
+    # and dataset box. Chien carries no reference section at all; keeping one
+    # is the single deliberate departure from the examples.
+    y = bar(0, y, "References")
+    return body(0, y, REFERENCES, size=REF_PT, bullet=False)
 
-# ── column 2: Methods picked up, then the headline result ────────────────
-y = TOP
-y = bar(1, y, "Methods, continued")
-y = body(1, y, METHODS[3:])
-y = bar(1, y, "Results")
-y = bar(1, y, RES_A_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-y = figure(1, y, "posterA_decomposition.png", 7.40)
-y = body(1, y, RES_A)
-y = bar(1, y, RES_C_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-y = figure(1, y, "posterC_runlevel.png", 6.20)
-y = body(1, y, RES_C)
-y = bar(1, y, "Code & Data")
-qr_top = y
-y = body(1, y, CODE, bullet=False, width=COL_W - 1.80)
-figure(1, qr_top + 0.02, "posterE_qr.png", 1.55, width=1.55,
-       left=COL_X[1] + COL_W - 1.60)
-y = max(y, qr_top + 1.75)
-print(f"  column 2 ends at {y - GAP:5.2f} in   (limit {BOTTOM})")
 
-# ── column 3: the rest of the results, then what it means ────────────────
-y = TOP
-y = bar(2, y, "Results, continued")
-y = bar(2, y, RES_G_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-y = figure(2, y, "posterG_stressors.png", 4.25)
-y = body(2, y, RES_G)
-y = bar(2, y, RES_B_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-y = figure(2, y, "posterB_both_datasets.png", 6.80)
-y = body(2, y, RES_B)
-y = bar(2, y, "Future Directions")
-y = body(2, y, FUTURE)
-y = bar(2, y, "Conclusions")
-y = body(2, y, CONCLUSIONS)
-y = bar(2, y, "Acknowledgements")
-y = body(2, y, ACK)
-print(f"  column 3 ends at {y - GAP:5.2f} in   (limit {BOTTOM})")
+def column_2():
+    y = TOP
+    y = bar(1, y, "Methods: seven merge rules and one control")
+    y = body(1, y, METHODS)
+    y = table(1, y, DESIGN_TABLE, DESIGN_W, centre_from=9)
+    y = bar(1, y, "Results")
+    y = bar(1, y, RES_A_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
+    y = figure(1, y, "posterA_decomposition.png", 4.80)
+    y = table(1, y, RESULTS_TABLE, RESULTS_W, highlight=4)
+    y = body(1, y, [RESULTS_CAPTION], size=REF_PT, bullet=False, italic=True,
+             colour=RGBColor(0x44, 0x44, 0x44))
+    y = body(1, y, RES_A)
+    y = bar(1, y, RES_C_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
+    y = figure(1, y, "posterC_runlevel.png", 5.00)
+    return body(1, y, RES_C)
+
+
+def column_3():
+    y = TOP
+    y = bar(2, y, "Results, continued")
+    y = bar(2, y, RES_G_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
+    y = figure(2, y, "posterG_stressors.png", 3.00)
+    y = body(2, y, RES_G)
+    y = bar(2, y, RES_B_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
+    y = figure(2, y, "posterB_both_datasets.png", 4.60)
+    y = body(2, y, RES_B)
+    y = bar(2, y, "Future Directions")
+    y = body(2, y, FUTURE)
+    y = bar(2, y, "Conclusions")
+    y = body(2, y, CONCLUSIONS)
+    # the code + QR box sits bottom-right, where both examples put theirs
+    y = bar(2, y, "Code & Data")
+    qr_top = y
+    y = body(2, y, CODE, bullet=False, width=COL_W - 1.80)
+    figure(2, qr_top + 0.02, "posterE_qr.png", 1.55, width=1.55,
+           left=COL_X[2] + COL_W - 1.60)
+    y = max(y, qr_top + 1.75)
+    y = bar(2, y, "Acknowledgements")
+    return body(2, y, ACK)
+
+
+TARGET = BOTTOM - 0.40        # leave a little air above the footer bar
+G_MIN, G_MAX = 0.20, 0.60     # below 0.20 sections crowd; above 0.60 they drift
+
+for n, draw in enumerate([column_1, column_2, column_3], start=1):
+    # the column end is affine in G, so two dry runs give the slope exactly
+    DRY = True
+    G = 0.20
+    e1 = draw()
+    G = 0.40
+    e2 = draw()
+    slope = (e2 - e1) / 0.20
+    base = e1 - slope * 0.20
+    G = min(G_MAX, max(G_MIN, (TARGET - base) / slope))
+    DRY = False
+    end = draw()
+    print(f"  column {n}: gap {G:4.2f} in, ends at {end - G:5.2f} in "
+          f"(target {TARGET}, footer {BOTTOM + 0.2})")
 
 prs.save(OUT)
 print("\nwrote", OUT)
