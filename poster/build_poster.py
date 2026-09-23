@@ -273,30 +273,32 @@ for n in ("TextBox 7", "TextBox 10", "TextBox 12", "TextBox 14",
           "TextBox 17", "TextBox 21", "TextBox 23", "Picture 5"):
     drop(n)
 
-# ── column 1: the setup ──────────────────────────────────────────────────
+# ── column 1: the setup, ending mid-Methods ──────────────────────────────
+# Methods deliberately runs off the bottom of this column and resumes at the
+# top of the next, which is how the example posters carry a long section.
 y = TOP
 y = bar(0, y, "Motivation & Questions")
 y = body(0, y, MOTIVATION)
 y = bar(0, y, "Background: how federated learning works")
 y = body(0, y, BACKGROUND)
 y = figure(0, y, "posterD_federated.png", 2.85)
-y = bar(0, y, "Dataset")
+y = bar(0, y, "Dataset: two health datasets, split 20 ways")
 y = body(0, y, DATASET)
 y = figure(0, y, "posterF_partition.png", 4.35)
 y = body(0, y, DATASET_AFTER)
-y = bar(0, y, "Code & Data")
-qr_top = y
-y = body(0, y, CODE, bullet=False, width=COL_W - 1.80)
-figure(0, qr_top + 0.02, "posterE_qr.png", 1.55, width=1.55,
-       left=COL_X[0] + COL_W - 1.60)
-y = bar(0, max(y, qr_top + 1.75), "References")
+y = bar(0, y, "Methods: seven merge rules and one control")
+y = body(0, y, METHODS[:4])
+# References sit bottom-left, where the Bylinskii example puts its paper and
+# dataset box. Chien carries no reference section at all; keeping one is the
+# single deliberate departure from the examples.
+y = bar(0, y, "References")
 y = body(0, y, REFERENCES, size=REF_PT, bullet=False)
 print(f"  column 1 ends at {y - GAP:5.2f} in   (limit {BOTTOM})")
 
-# ── column 2: what we did, and the headline result ───────────────────────
+# ── column 2: Methods picked up, then the headline result ────────────────
 y = TOP
-y = bar(1, y, "Methods")
-y = body(1, y, METHODS)
+y = bar(1, y, "Methods, continued")
+y = body(1, y, METHODS[4:])
 y = bar(1, y, "Results")
 y = bar(1, y, RES_A_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
 y = figure(1, y, "posterA_decomposition.png", 7.40)
@@ -304,16 +306,22 @@ y = body(1, y, RES_A)
 y = bar(1, y, RES_C_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
 y = figure(1, y, "posterC_runlevel.png", 6.20)
 y = body(1, y, RES_C)
+y = bar(1, y, "Code & Data")
+qr_top = y
+y = body(1, y, CODE, bullet=False, width=COL_W - 1.80)
+figure(1, qr_top + 0.02, "posterE_qr.png", 1.55, width=1.55,
+       left=COL_X[1] + COL_W - 1.60)
+y = max(y, qr_top + 1.75)
 print(f"  column 2 ends at {y - GAP:5.2f} in   (limit {BOTTOM})")
 
 # ── column 3: the rest of the results, then what it means ────────────────
 y = TOP
 y = bar(2, y, "Results, continued")
 y = bar(2, y, RES_G_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-y = figure(2, y, "posterG_stressors.png", 4.40)
+y = figure(2, y, "posterG_stressors.png", 4.25)
 y = body(2, y, RES_G)
 y = bar(2, y, RES_B_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-y = figure(2, y, "posterB_both_datasets.png", 7.20)
+y = figure(2, y, "posterB_both_datasets.png", 6.80)
 y = body(2, y, RES_B)
 y = bar(2, y, "Future Directions")
 y = body(2, y, FUTURE)
