@@ -43,7 +43,7 @@ FONT = "Calibri"                          # the template's minor font
 COL_W = 7.26
 COL_X = [0.60, 8.36, 16.12]
 TOP = 3.62                                # header bar ends at 3.27
-BOTTOM = 35.3
+BOTTOM = 34.2   # the footer bar starts at 34.40
 
 BAR_H, BAR_PT = 0.78, 25
 SUB_H, SUB_PT = 0.62, 19
@@ -273,6 +273,16 @@ for n in ("TextBox 7", "TextBox 10", "TextBox 12", "TextBox 14",
           "TextBox 17", "TextBox 21", "TextBox 23", "Picture 5"):
     drop(n)
 
+# The UNT .docx version of this template closes with a green footer bar; the
+# .pptx version does not. Clone the header rectangle so the footer carries the
+# template's own gradient rather than a colour we invented.
+import copy
+_hdr_rect = shapes["Rectangle 15"]
+_hdr_rect._element.getparent().append(copy.deepcopy(_hdr_rect._element))
+footer = list(slide.shapes)[-1]
+footer.left, footer.top = 0, Inches(34.40)
+footer.width, footer.height = Inches(24.0), Inches(1.60)
+
 # ── column 1: the setup, ending mid-Methods ──────────────────────────────
 # Methods deliberately runs off the bottom of this column and resumes at the
 # top of the next, which is how the example posters carry a long section.
@@ -287,7 +297,7 @@ y = body(0, y, DATASET)
 y = figure(0, y, "posterF_partition.png", 4.35)
 y = body(0, y, DATASET_AFTER)
 y = bar(0, y, "Methods: seven merge rules and one control")
-y = body(0, y, METHODS[:4])
+y = body(0, y, METHODS[:3])
 # References sit bottom-left, where the Bylinskii example puts its paper and
 # dataset box. Chien carries no reference section at all; keeping one is the
 # single deliberate departure from the examples.
@@ -298,7 +308,7 @@ print(f"  column 1 ends at {y - GAP:5.2f} in   (limit {BOTTOM})")
 # ── column 2: Methods picked up, then the headline result ────────────────
 y = TOP
 y = bar(1, y, "Methods, continued")
-y = body(1, y, METHODS[4:])
+y = body(1, y, METHODS[3:])
 y = bar(1, y, "Results")
 y = bar(1, y, RES_A_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
 y = figure(1, y, "posterA_decomposition.png", 7.40)
