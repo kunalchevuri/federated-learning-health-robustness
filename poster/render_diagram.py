@@ -17,7 +17,7 @@ import tempfile
 HTML = os.path.abspath("poster/diagram_federated.html")
 OUT = os.path.abspath("poster/figures/posterD_federated.png")
 SCALE = 3
-W, H = 1080, 456
+W, H = 1080, 588
 
 CANDIDATES = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",

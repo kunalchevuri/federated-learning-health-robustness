@@ -52,6 +52,7 @@ UNT_BAND = RGBColor(0xCF, 0xE3, 0xC4)    # pale tint, for the control row
 PAPER = RGBColor(0xE2, 0xF0, 0xD9)       # the template slide's own fill
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 INK = RGBColor(0x1A, 0x1A, 0x1A)
+CAP_INK = RGBColor(0x33, 0x33, 0x33)     # captions sit back from the body text
 FONT = "Calibri"                          # the template's minor font
 
 # ── layout grid ──────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ SUB_H, SUB_PT = 0.62, 19
 BODY_PT = 19
 REF_PT = 17
 TBL_PT = 15
+CAP_PT = 15                               # figure captions
 LINE21 = 0.355                            # height of one 21 pt line, in inches
 GAP = 0.20
 
@@ -93,17 +95,16 @@ MOTIVATION = [
     "record out of the institution holding it.",
     "The rule that merges each site's work is normally chosen for its "
     "robustness to noisy or unusual sites.",
-    "Robust rules are always scored against FedAvg, which weights each site "
-    "by how much data it holds, so the biggest site gets the loudest vote.",
-    "Robust rules discard that weighting entirely, so two things change at "
-    "once and nobody had separated them.",
+    "Robust rules are scored against FedAvg, which weights each site by how "
+    "much data it holds -- and they discard that weighting entirely, so two "
+    "things change at once and nobody had separated them.",
     "We ask: when a robust rule wins, is it the robust statistic winning, or "
     "just the end of the loudest vote?",
 ]
 
 BACKGROUND = [
-    "Each site trains on its own data and sends only the model update, which "
-    "the server merges into one shared model.",
+    "Each site trains on its own data and sends only the model update -- no "
+    "patient record ever leaves the institution holding it.",
 ]
 
 DATASET = [
@@ -113,10 +114,7 @@ DATASET = [
     "Each dataset is dealt to 20 simulated sites by Dirichlet partitioning, "
     "whose dial alpha sets how lopsided the split is.",
 ]
-DATASET_AFTER = [
-    "At alpha = 0.1 one site holds 106,481 training rows, 34.8% of the total, "
-    "while two sites receive nothing at all.",
-]
+DATASET_AFTER = []
 
 METHODS = [
     "Seven merge rules run head to head: FedAvg, FedProx, CS-Agg, Krum, "
@@ -136,18 +134,15 @@ DESIGN_TABLE = [
     ["Datasets", "BRFSS 2023 and Breast Cancer Wisconsin"],
     ["Split skew, alpha", "0.1, 0.5, 1.0 — lower is more lopsided"],
     ["Label noise", "0, 10, 20, 30% of records, at 20% of sites"],
-    ["Random seeds", "42, 123, 456"],
-    ["Every run", "20 sites, 50 rounds, scored by AUC-ROC"],
+    ["Every run", "20 sites, 50 rounds, seeds 42 / 123 / 456"],
     ["Total", "624 completed runs"],
 ]
 DESIGN_W = [2.20, 5.06]
 
 RES_A_SUB = "Most of the gain over FedAvg is weighting, not robustness"
 RES_A = [
-    "The control alone recovers 79 to 98% of what the three strongest robust "
-    "rules gain over FedAvg.",
-    "Only coordinate-wise median clearly clears the control, and CS-Agg "
-    "cannot be told apart from it at all.",
+    "Pooled across every condition the control recovers 78 to 96% of what the "
+    "three strongest robust rules gain, and CS-Agg cannot be told apart from it.",
 ]
 
 # ── Table 1: the results summary ─────────────────────────────────────────
@@ -165,37 +160,29 @@ RESULTS_TABLE = [
     ["Coord. median", "0.7828", "0.7279", "+0.0747", "+0.0163", "< 0.0001"],
 ]
 RESULTS_W = [2.00, 0.90, 0.90, 1.05, 1.05, 1.36]
-RESULTS_CAPTION = ("36 runs per rule on BRFSS. The three robust rules that beat the control "
-                   "beat it by far less than the control beats FedAvg.")
+RESULTS_CAPTION = ("36 runs per rule on BRFSS, every condition pooled. Holm-corrected "
+                   "Wilcoxon signed-rank against the control.")
 
 RES_C_SUB = "Krum is unreliable, not merely weaker"
-RES_C = [
-    "Krum lands below the control and collapses to 0.328 AUC on one run, "
-    "worse than a coin flip.",
-]
+RES_C = []
 
 RES_G_SUB = "Lopsided data hurts far more than broken labels"
 RES_G = [
-    "Moving from alpha = 1.0 to 0.1 costs FedAvg 0.2348 AUC, while 0% to 30% "
-    "label noise costs it 0.0016.",
     "That 149x gap narrows to about 14x when sites track twelve health "
     "variables instead of four, but it never closes.",
 ]
 
 RES_B_SUB = "A clean benchmark would have hidden all of this"
 RES_B = [
-    "On Breast Cancer every rule but Krum reaches 0.997 AUC or better, where "
-    "no difference between them is visible.",
     "Messy, self-reported population health data is where these rules "
     "actually separate.",
 ]
 
 FUTURE = [
     "Test adaptive Byzantine attackers, not only the label noise studied here.",
-    "Replace the simulated Dirichlet split with data partitioned across real "
-    "institutions.",
-    "Check whether the weighting effect persists for deeper models and larger "
-    "numbers of sites.",
+    "Replace the simulated split with data partitioned across real "
+    "institutions, and check that the weighting effect holds for deeper "
+    "models and more sites.",
 ]
 
 CONCLUSIONS = [
@@ -235,6 +222,35 @@ REFERENCES = [
     "for federated visual classification. arXiv:1909.06335, 2019.",
     "[6]  CDC. BRFSS 2023 survey data and documentation.",
 ]
+
+# ═════════════════════════════════════════════════════════════════════════
+# Figure captions. Numbered in the poster's reading order. Each one says what
+# the figure shows and then what it means for the result, so a judge can read
+# a figure without reading the bullets around it. Every number quoted here
+# re-derives from results/experiment_results_merged.csv.
+# ═════════════════════════════════════════════════════════════════════════
+CAPTIONS = {
+    1: "Figure 1. One training round, run two ways. The same 20 sites send the "
+       "same updates; only the merge rule differs. FedAvg hands the largest "
+       "site 34.8% of the vote, the control gives every site 5% -- worth "
+       "+0.172 AUC on its own.",
+    2: "Figure 2. How the training data is dealt across 20 sites. At "
+       "alpha = 0.1 one site holds 34.8% of it and two sites get none; at "
+       "alpha = 1.0 the split is mild. This skew is what gives FedAvg's "
+       "size-weighting something to get wrong.",
+    3: "Figure 3. All seven rules under the harshest split, 12 runs each. "
+       "Three robust rules clear the dashed control line, but only by 0.004 "
+       "to 0.045, against the 0.172 the control alone gains over FedAvg.",
+    4: "Figure 4. The individual runs behind those means. Krum's average of "
+       "0.658 hides a run at 0.328, worse than a coin flip, while the control "
+       "never falls below 0.64. An average is not evidence a rule is safe.",
+    5: "Figure 5. Both stressors, measured on FedAvg. Lopsided data costs 149 "
+       "times more AUC than broken labels do, so robustness work aimed at "
+       "noisy labels is aimed at the smaller problem.",
+    6: "Figure 6. Both datasets, averaged over every split, noise level and "
+       "seed (252 runs each). On the clean benchmark every rule but Krum "
+       "reaches 0.997, so a study run only there would have found nothing.",
+}
 
 # ═════════════════════════════════════════════════════════════════════════
 prs = Presentation(TEMPLATE)
@@ -281,6 +297,8 @@ def bar(col, y, text, height=BAR_H, size=BAR_PT, fill=UNT_GREEN):
 def body(col, y, items, size=BODY_PT, bullet=True, width=None, italic=False,
          colour=INK):
     """Bulleted body text; returns the estimated y just below it."""
+    if not items:
+        return y
     w = width if width else COL_W
     # 21 pt wraps at ~52 chars in a 7.26 in column; scale with size and width.
     per_line = int(52 * (21.0 / size) * (w / COL_W))
@@ -376,14 +394,18 @@ def table(col, y, rows, widths, size=TBL_PT, row_h=0.42, hdr_h=0.66,
     return y + h + G
 
 
-def figure(col, y, fn, height, width=None, left=None):
-    if DRY:
-        return y + height + G
+def figure(col, y, fn, height, width=None, left=None, num=None):
+    """Place a figure and, when it carries a number, its caption below it."""
     w = width if width else COL_W
     x = left if left is not None else COL_X[col]
-    slide.shapes.add_picture(os.path.join(FIGDIR, fn), Inches(x), Inches(y),
-                             Inches(w), Inches(height))
-    return y + height + G
+    if not DRY:
+        slide.shapes.add_picture(os.path.join(FIGDIR, fn), Inches(x), Inches(y),
+                                 Inches(w), Inches(height))
+    y = y + height + (0.10 if num else G)
+    if num is None:
+        return y
+    return body(col, y, [CAPTIONS[num]], size=CAP_PT, bullet=False,
+                colour=CAP_INK)
 
 
 # ── header ───────────────────────────────────────────────────────────────
@@ -443,10 +465,10 @@ def column_1():
     y = body(0, y, MOTIVATION)
     y = bar(0, y, "Background: how federated learning works")
     y = body(0, y, BACKGROUND)
-    y = figure(0, y, "posterD_federated.png", 3.07)
+    y = figure(0, y, "posterD_federated.png", 3.95, num=1)
     y = bar(0, y, "Dataset: two health datasets, split 20 ways")
     y = body(0, y, DATASET)
-    y = figure(0, y, "posterF_partition.png", 5.60)
+    y = figure(0, y, "posterF_partition.png", 5.00, num=2)
     y = body(0, y, DATASET_AFTER)
     # References sit bottom-left, where the Bylinskii example puts its paper
     # and dataset box. Chien carries no reference section at all; keeping one
@@ -462,13 +484,13 @@ def column_2():
     y = table(1, y, DESIGN_TABLE, DESIGN_W, centre_from=9)
     y = bar(1, y, "Results")
     y = bar(1, y, RES_A_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-    y = figure(1, y, "posterA_decomposition.png", 4.80)
+    y = figure(1, y, "posterA_decomposition.png", 5.30, num=3)
     y = table(1, y, RESULTS_TABLE, RESULTS_W, highlight=4)
     y = body(1, y, [RESULTS_CAPTION], size=REF_PT, bullet=False, italic=True,
              colour=RGBColor(0x44, 0x44, 0x44))
     y = body(1, y, RES_A)
     y = bar(1, y, RES_C_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-    y = figure(1, y, "posterC_runlevel.png", 5.00)
+    y = figure(1, y, "posterC_runlevel.png", 5.40, num=4)
     return body(1, y, RES_C)
 
 
@@ -476,10 +498,10 @@ def column_3():
     y = TOP
     y = bar(2, y, "Results, continued")
     y = bar(2, y, RES_G_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-    y = figure(2, y, "posterG_stressors.png", 3.00)
+    y = figure(2, y, "posterG_stressors.png", 4.30, num=5)
     y = body(2, y, RES_G)
     y = bar(2, y, RES_B_SUB, height=SUB_H, size=SUB_PT, fill=UNT_SUB)
-    y = figure(2, y, "posterB_both_datasets.png", 4.60)
+    y = figure(2, y, "posterB_both_datasets.png", 5.10, num=6)
     y = body(2, y, RES_B)
     y = bar(2, y, "Future Directions")
     y = body(2, y, FUTURE)
