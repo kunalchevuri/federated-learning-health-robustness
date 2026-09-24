@@ -1,23 +1,29 @@
 <!DOCTYPE html>
 <!--
-  diagram_federated.html — the "how federated learning works" schematic.
+  diagram_federated.html — Figure 1.
 
   Built on the cathrynlavery/diagram-design system, with its semantic tokens
   remapped to UNT's palette (the style guide's sanctioned "brand handoff"):
 
       accent      -> UNT green #007439      one accent, one focal node
       paper       -> #E2F0D9                the COI template's own slide fill
-      ink / muted / soft / rule             neutral greys, no second hue
+      ink / muted / soft                    neutral greys, no second hue
 
-  Its hard rules are kept: every coordinate divisible by the grid unit,
-  hairline strokes, radius 18/24 (its 6/8 at this scale), node fills by
-  semantic role, mono reserved for technical values, one italic callout.
+  Its rules are kept: layout coordinates on the grid unit, hairline strokes,
+  radius 18/24 (its 6/8 at this scale), node fills by semantic role, mono
+  reserved for technical values, one italic callout, and the legend strip
+  from assets/example-architecture.html. Segment widths inside the vote bars
+  are data-driven, so those alone sit off-grid.
 
   The whole spec is scaled 3x from the native 12px/1px/6r screen sizes so the
   type lands at 13-20 pt when the PNG is placed 7.26 in wide on a 24x36 board;
   the grid unit scales with it, 4 -> 12.
 
-  Site box heights are the real partition shares at alpha = 0.1, seed 42.
+  The figure shows the poster's actual claim rather than generic federated
+  learning: the same 20 sites sending the same updates, two merge rules that
+  differ only in how much each site counts, and the two answers that come out.
+  Every number on it is measured -- shares from the alpha = 0.1, seed 42
+  partition, AUC from results/experiment_results_merged.csv.
 
   Rendered by render_diagram.py (headless Chrome).
 -->
@@ -30,22 +36,25 @@
     --ink:         #1A1A1A;
     --muted:       #5C6B63;
     --soft:        #7C8A82;
+    --rule:        rgba(26,26,26,0.14);
     --accent:      #007439;
     --accent-tint: rgba(0,116,57,0.09);
     --input-fill:  rgba(26,26,26,0.05);
   }
   html, body { margin: 0; padding: 0; background: var(--paper); }
   svg { display: block; }
-  .name    { font-family: Calibri, "Segoe UI", sans-serif; font-weight: 700; fill: var(--ink); font-size: 36px; }
-  .sub     { font-family: Consolas, "Geist Mono", monospace; font-size: 23px; fill: var(--muted); }
-  .eyebrow { font-family: Consolas, "Geist Mono", monospace; font-size: 23px; font-weight: 600;
+  .name    { font-family: Calibri, "Segoe UI", sans-serif; font-weight: 700; fill: var(--ink); font-size: 33px; }
+  .sub     { font-family: Consolas, "Geist Mono", monospace; font-size: 22px; fill: var(--muted); }
+  .eyebrow { font-family: Consolas, "Geist Mono", monospace; font-size: 21px; font-weight: 600;
              letter-spacing: 3px; text-transform: uppercase; fill: var(--soft); }
-  .callout { font-family: Calibri, "Segoe UI", sans-serif; font-size: 36px; font-style: italic; fill: var(--ink); }
-  .note    { font-family: Calibri, "Segoe UI", sans-serif; font-size: 27px; fill: var(--muted); }
+  .callout { font-family: Calibri, "Segoe UI", sans-serif; font-size: 34px; font-style: italic; fill: var(--ink); }
+  .note    { font-family: Calibri, "Segoe UI", sans-serif; font-size: 25px; fill: var(--muted); }
+  .leg     { font-family: Calibri, "Segoe UI", sans-serif; font-size: 24px; fill: var(--muted); }
+  .big     { font-family: Calibri, "Segoe UI", sans-serif; font-weight: 700; font-size: 40px; fill: var(--ink); }
 </style>
 </head>
 <body>
-<svg width="1080" height="456" viewBox="0 0 1080 456" xmlns="http://www.w3.org/2000/svg">
+<svg width="1080" height="588" viewBox="0 0 1080 588" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <marker id="armuted" viewBox="0 0 10 10" refX="9" refY="5"
             markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -57,74 +66,143 @@
     </marker>
   </defs>
 
-  <rect width="1080" height="456" fill="var(--paper)"/>
+  <rect width="1080" height="588" fill="var(--paper)"/>
 
-  <!-- ── the sites: node type `input`; box height = real share of training data ── -->
+  <!-- stage 1: the 20 sites, box height = real share at alpha = 0.1 -->
+  <text class="eyebrow" x="0" y="132">The 20 sites</text>
   <g>
-    <rect x="0" y="72" width="288" height="96" rx="18"
+    <rect x="0" y="156" width="240" height="84" rx="18"
           fill="var(--input-fill)" stroke="var(--soft)" stroke-width="3"/>
-    <text class="name" x="24" y="114">Site 1</text>
-    <text class="sub"  x="24" y="146">106,481 rows</text>
-    <text class="sub"  x="264" y="146" text-anchor="end">34.8%</text>
+    <text class="name" x="18" y="195">Site 1</text>
+    <text class="sub"  x="222" y="194" text-anchor="end">34.8%</text>
+    <text class="sub"  x="18"  y="226">106,481 rows</text>
 
-    <rect x="0" y="192" width="288" height="48" rx="18"
+    <rect x="0" y="252" width="240" height="48" rx="18"
           fill="var(--input-fill)" stroke="var(--soft)" stroke-width="3"/>
-    <text class="name" x="24" y="226" font-size="31">Site 2</text>
-    <text class="sub"  x="264" y="225" text-anchor="end">17.5%</text>
+    <text class="name" x="18" y="285" font-size="29">Site 2</text>
+    <text class="sub"  x="222" y="284" text-anchor="end">17.5%</text>
 
-    <rect x="0" y="264" width="288" height="36" rx="18"
+    <rect x="0" y="312" width="240" height="36" rx="18"
           fill="var(--input-fill)" stroke="var(--soft)" stroke-width="3"/>
-    <text class="name" x="24" y="291" font-size="27">Site 3</text>
-    <text class="sub"  x="264" y="290" text-anchor="end">13.3%</text>
+    <text class="name" x="18" y="339" font-size="25">Site 3</text>
+    <text class="sub"  x="222" y="338" text-anchor="end">13.3%</text>
+
+    <g id="ticks"></g>
+    <text class="note" x="0" y="420">&#8230;17 more, two with no data at all</text>
   </g>
 
-  <!-- the remaining 17, the last two holding nothing -->
-  <g>
-    <rect x="0" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="16" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="32" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="48" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="64" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="80" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="96" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="112" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="128" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="144" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="160" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="176" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="192" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="208" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="224" y="336" width="12" height="12" rx="4" fill="var(--soft)"/>
-    <rect x="240" y="336" width="12" height="12" rx="4" fill="none" stroke="var(--soft)" stroke-width="2.4"/>
-    <rect x="256" y="336" width="12" height="12" rx="4" fill="none" stroke="var(--soft)" stroke-width="2.4"/>
-    <text class="note" x="0" y="426">…17 more, two handed no data at all</text>
-  </g>
-
-  <!-- ── the fan-in: model updates only ── -->
+  <!-- every site sends the same update; the branch is what happens next -->
   <g stroke="var(--muted)" stroke-width="3" fill="none" marker-end="url(#armuted)">
-    <path d="M 288 120 C 372 120, 408 198, 480 198"/>
-    <path d="M 288 216 C 372 216, 408 198, 480 198"/>
-    <path d="M 288 282 C 372 282, 408 198, 480 198"/>
+    <path d="M 240 240 C 312 240, 324 120, 384 120"/>
+    <path d="M 240 312 C 312 312, 324 408, 384 408"/>
   </g>
-  <text class="eyebrow" x="312" y="96">Model updates only</text>
+  <text class="eyebrow" x="276" y="66">Same updates, both rows</text>
 
-  <!-- ── the merge rule: the one focal node ── -->
-  <rect x="480" y="138" width="180" height="120" rx="24"
-        fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="4"/>
-  <text class="name" x="570" y="190" text-anchor="middle">Merge</text>
-  <text class="name" x="570" y="226" text-anchor="middle">rule</text>
-
-  <!-- ── out: the shared model ── -->
-  <path d="M 660 198 L 816 198" stroke="var(--accent)" stroke-width="4"
-        fill="none" marker-end="url(#araccent)"/>
-  <rect x="804" y="150" width="240" height="96" rx="18"
+  <!-- row 1: FedAvg, where the site with the most data gets the loudest vote -->
+  <rect x="384" y="72" width="252" height="96" rx="18"
         fill="#FFFFFF" stroke="var(--ink)" stroke-width="3"/>
-  <text class="name" x="924" y="190" text-anchor="middle">One shared</text>
-  <text class="name" x="924" y="226" text-anchor="middle">model</text>
-  <text class="eyebrow" x="924" y="282" text-anchor="middle">No records move</text>
+  <text class="name" x="510" y="112" text-anchor="middle">FedAvg</text>
+  <text class="sub"  x="510" y="144" text-anchor="middle">weight by data size</text>
 
-  <!-- the research question, the single editorial aside -->
-  <text class="callout" x="480" y="384">how much should each site count?</text>
+  <text class="eyebrow" x="660" y="66">Share of the vote</text>
+  <g id="voteA"></g>
+  <path d="M 636 120 L 654 120" stroke="var(--muted)" stroke-width="3" fill="none" marker-end="url(#armuted)"/>
+  <path d="M 900 120 L 930 120" stroke="var(--muted)" stroke-width="3" fill="none" marker-end="url(#armuted)"/>
+
+  <rect x="936" y="72" width="144" height="96" rx="18"
+        fill="#FFFFFF" stroke="var(--ink)" stroke-width="3"/>
+  <text class="eyebrow" x="1008" y="108" text-anchor="middle">AUC</text>
+  <text class="big"     x="1008" y="150" text-anchor="middle">0.553</text>
+
+  <!-- the point of the whole poster -->
+  <text class="callout" x="384" y="282">The only difference is the weighting.</text>
+
+  <!-- row 2: the unweighted-mean control, one site one vote -->
+  <rect x="384" y="360" width="252" height="96" rx="18"
+        fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="4"/>
+  <text class="name" x="510" y="400" text-anchor="middle" font-size="30">Unweighted mean</text>
+  <text class="sub"  x="510" y="432" text-anchor="middle">one site, one vote</text>
+
+  <g id="voteB"></g>
+  <path d="M 636 408 L 654 408" stroke="var(--accent)" stroke-width="3" fill="none" marker-end="url(#araccent)"/>
+  <path d="M 900 408 L 930 408" stroke="var(--accent)" stroke-width="3" fill="none" marker-end="url(#araccent)"/>
+
+  <rect x="936" y="360" width="144" height="96" rx="18"
+        fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="4"/>
+  <text class="eyebrow" x="1008" y="396" text-anchor="middle">AUC</text>
+  <text class="big"     x="1008" y="438" text-anchor="middle">0.725</text>
+
+  <!-- the measured consequence -->
+  <text class="name" x="1008" y="240" text-anchor="middle" style="fill:#007439;font-size:28px">+0.172</text>
+  <path d="M 1008 258 L 1008 348" stroke="var(--accent)" stroke-width="3" fill="none" marker-end="url(#araccent)"/>
+
+  <!-- legend strip, after assets/example-architecture.html -->
+  <line x1="0" y1="504" x2="1080" y2="504" stroke="var(--rule)" stroke-width="2.4"/>
+  <text class="eyebrow" x="0" y="554">Legend</text>
+  <g>
+    <rect x="132" y="534" width="36" height="24" rx="6"
+          fill="var(--input-fill)" stroke="var(--soft)" stroke-width="3"/>
+    <text class="leg" x="180" y="554">A site, box sized by its data</text>
+
+    <rect x="516" y="534" width="36" height="24" rx="6"
+          fill="#FFFFFF" stroke="var(--ink)" stroke-width="3"/>
+    <text class="leg" x="564" y="554">Standard practice</text>
+
+    <rect x="792" y="534" width="36" height="24" rx="6"
+          fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="4"/>
+    <text class="leg" x="840" y="554">Our control</text>
+  </g>
+
+<script>
+// The vote bars and the 20-site tick row are generated, so the geometry is the
+// measured partition rather than drawn by eye. Shares are the alpha = 0.1,
+// seed 42 client sizes; see client_sizes() in figures_poster.py.
+const SHARES = [0.3478, 0.1747, 0.1330, 0.1216, 0.0761, 0.0694, 0.0551,
+                0.0057, 0.0050, 0.0032, 0.0026, 0.0022, 0.0021, 0.0009,
+                0.0003, 0.0001, 0.0001, 0.0000, 0.0000, 0.0000];
+const NS = "http://www.w3.org/2000/svg";
+const el = (n, a) => { const e = document.createElementNS(NS, n);
+                       for (const k in a) e.setAttribute(k, a[k]); return e; };
+
+// 17 ticks for the sites not drawn as boxes; the last two hold nothing
+const ticks = document.getElementById("ticks");
+for (let i = 0; i < 17; i++) {
+  const empty = i >= 15;
+  ticks.appendChild(el("rect", {
+    x: i * 14, y: 372, width: 10, height: 12, rx: 4,
+    fill: empty ? "none" : "var(--soft)",
+    stroke: empty ? "var(--soft)" : "none",
+    "stroke-width": empty ? 2.4 : 0}));
+}
+
+// vote bars: FedAvg in proportion to data, the control in equal slices
+function voteBar(id, y, weights, accent) {
+  const g = document.getElementById(id), W = 240, X = 660;
+  let x = X;
+  weights.forEach((w, i) => {
+    const seg = w * W;
+    g.appendChild(el("rect", {
+      x: x, y: y, width: seg, height: 48,
+      fill: i === 0 ? (accent ? "var(--accent)" : "var(--ink)")
+                    : (accent ? "rgba(0,116,57,0.30)" : "rgba(26,26,26,0.22)"),
+      stroke: "var(--paper)", "stroke-width": 1.5}));
+    x += seg;
+  });
+  g.appendChild(el("rect", {x: X, y: y, width: W, height: 48, rx: 6,
+    fill: "none", stroke: accent ? "var(--accent)" : "var(--ink)", "stroke-width": 3}));
+  // the first segment carries its own label only when it is wide enough;
+  // the equal-weight bar gets one note underneath instead
+  const wide = weights[0] * W > 60;
+  const t = el("text", wide
+    ? {x: X + weights[0] * W / 2, y: y + 32, "text-anchor": "middle", class: "sub", style: "fill:#FFFFFF"}
+    : {x: X, y: y + 78, class: "sub"});
+  t.textContent = wide ? (weights[0] * 100).toFixed(1) + "%"
+                       : "every site 5.0%";
+  g.appendChild(t);
+}
+voteBar("voteA", 96, SHARES, false);
+voteBar("voteB", 384, new Array(20).fill(0.05), true);
+</script>
 </svg>
 </body>
 </html>
